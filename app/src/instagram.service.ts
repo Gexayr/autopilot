@@ -125,8 +125,8 @@ export class InstagramService {
   }
 
   profile(acc: IgAccount) {
-    return this.call<{ followers_count: number; media_count: number; profile_picture_url?: string; name?: string }>(
-      acc, 'GET', acc.igUserId, { fields: 'followers_count,media_count,profile_picture_url,name' });
+    return this.call<{ followers_count: number; media_count: number; profile_picture_url?: string; name?: string; username?: string }>(
+      acc, 'GET', acc.igUserId, { fields: 'followers_count,media_count,profile_picture_url,name,username' });
   }
 
   async mediaInsights(acc: IgAccount, mediaId: string) {

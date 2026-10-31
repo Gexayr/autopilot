@@ -101,6 +101,10 @@ export class PagesController {
     const list = await this.accounts.find({ where: { ownerId: user.id }, order: { id: 'ASC' } });
     return Promise.all(list.map(async (a) => {
       const p = await this.ig.profile(a).catch((e) => ({ error: (e as Error).message }));
+      if ((p as any).username && (p as any).username !== a.username) { // renamed in Instagram
+        await this.posts.syncUsername(a.id, (p as any).username);
+        a.username = (p as any).username;
+      }
       const pages = await this.pages.find({ where: { igAccountId: a.id }, select: ['id', 'title'] });
       const queued = pages.length ? await this.postRepo.countBy({ pageId: In(pages.map((x) => x.id)), status: In(['approved', 'awaiting_approval']) }) : 0;
       return {

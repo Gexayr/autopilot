@@ -318,6 +318,25 @@ export class PostsService {
     }
   }
 
+  /**
+   * The Instagram username was changed in the app: keep ours in step, move the "@old" signature of the
+   * account's pages to "@new" and redraw their unpublished AI posts, so the queue shows the new name.
+   */
+  async syncUsername(accountId: number, username: string) {
+    const acc = await this.ig.account(accountId);
+    if (!username || acc.username === username) return;
+    const old = acc.username;
+    await this.db.query(`UPDATE ig_accounts SET username = $1 WHERE id = $2`, [username, accountId]);
+    this.log.log(`@${old} is now @${username}`);
+    for (const page of await this.pages.findBy({ igAccountId: accountId })) {
+      if (page.style.signature !== `@${old}`) continue;
+      page.style = { ...page.style, signature: `@${username}` };
+      await this.pages.update(page.id, { style: page.style });
+      const queued = await this.posts.find({ where: { pageId: page.id, source: 'ai', status: In(['approved', 'awaiting_approval']) } });
+      for (const post of queued) await this.renderMedia(post, page).catch((e) => this.log.warn(`redraw #${post.id}: ${(e as Error).message}`));
+    }
+  }
+
   /** The post's own media plus the raw AI picture / clip under it. */
   async removeFiles(post: Post) {
     for (const f of [post.mediaFile, post.render?.aiImage, post.render?.aiVideo]) if (f) await this.removeFile(f);
@@ -394,6 +413,7 @@ export class PostsService {
       const acc = await this.ig.account(page.igAccountId);
       try {
         const p = await this.ig.profile(acc);
+        if (p.username) await this.syncUsername(acc.id, p.username);
         await this.pageStats.upsert({ pageId: page.id, day, followers: p.followers_count, mediaCount: p.media_count }, ['pageId', 'day']);
       } catch (e) {
         this.log.warn(`profile ${page.slug}: ${(e as Error).message}`);
