@@ -48,6 +48,7 @@ export interface PostRender {
   aiVideo?: string;
   fallback?: boolean; // AI failed, the post got a quote card instead
   frameOk?: boolean; // the still was approved: make the clip and queue it right away
+  publishNow?: boolean; // …and publish it as soon as it is ready instead of waiting for a slot
 }
 
 export type UserRole = 'admin' | 'user';

@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Card, Center, Group, Loader, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
-import { IconCheck, IconMovie, IconPencil, IconPhotoEdit, IconRefresh, IconSparkles, IconX } from '@tabler/icons-react';
+import { IconCheck, IconMovie, IconPencil, IconPhotoEdit, IconRefresh, IconSparkles, IconX, IconRocket } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, Page, Post } from '../api';
@@ -30,17 +30,18 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
   const list = (posts.data ?? []).filter((p) => !pageFilter || String(p.pageId) === pageFilter);
   const refresh = async () => { await posts.reload(); onChange(); };
 
-  const act = (p: Post, action: 'approve' | 'reject' | 'regenerate') => run(`${action}${p.id}`, async () => {
-    await api(`posts/${p.id}/${action}`, { body: {} });
+  // 'now' = approve and publish within a minute instead of the next free slot
+  const act = (p: Post, action: 'approve' | 'now' | 'reject' | 'regenerate') => run(`${action}${p.id}`, async () => {
+    await api(`posts/${p.id}/${action === 'now' ? 'approve' : action}`, { body: action === 'now' ? { now: true } : {} });
     if (action === 'regenerate') setGenUntil(Date.now() + 90_000);
     posts.setData((xs) => xs?.filter((x) => x.id !== p.id) ?? null);
     await refresh();
-  }, { approve: t('approvals.approved'), reject: t('approvals.discarded'), regenerate: t('approvals.regenerating') }[action]);
+  }, { approve: t('approvals.approved'), now: t('approvals.publishingNow'), reject: t('approvals.discarded'), regenerate: t('approvals.regenerating') }[action]);
 
-  const frame = (p: Post, action: 'approve' | 'new') => run(`frame${action}${p.id}`, async () => {
-    await api(`posts/${p.id}/frame/${action}`, { body: {} });
+  const frame = (p: Post, action: 'approve' | 'now' | 'new') => run(`frame${action}${p.id}`, async () => {
+    await api(`posts/${p.id}/frame/${action === 'new' ? 'new' : 'approve'}`, { body: action === 'now' ? { now: true } : {} });
     await refresh();
-  }, action === 'approve' ? t('approvals.animating') : t('approvals.newFrameToast'));
+  }, { approve: t('approvals.animating'), now: t('approvals.animatingNow'), new: t('approvals.newFrameToast') }[action]);
 
   const generate = () => run('gen', async () => {
     await api(`pages/${genPage}/generate`, { body: { hint, language: genLang ?? undefined } });
@@ -85,8 +86,9 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
                 <Text size="xs" c="dimmed">{t('approvals.frameHint')}</Text>
                 <Group gap={6} grow mt={4}>
                   <Button size="xs" color="green" leftSection={<IconMovie size={14} />} loading={busy === `frameapprove${p.id}`} onClick={() => frame(p, 'approve')}>{t('approvals.animate')}</Button>
-                  <Button size="xs" variant="default" leftSection={<IconPhotoEdit size={14} />} loading={busy === `framenew${p.id}`} onClick={() => frame(p, 'new')}>{t('approvals.newFrame')}</Button>
+                  <Button size="xs" color="violet" leftSection={<IconRocket size={14} />} loading={busy === `framenow${p.id}`} onClick={() => frame(p, 'now')}>{t('approvals.animateNow')}</Button>
                 </Group>
+                <Button size="xs" variant="default" leftSection={<IconPhotoEdit size={14} />} loading={busy === `framenew${p.id}`} onClick={() => frame(p, 'new')}>{t('approvals.newFrame')}</Button>
                 <Button size="xs" variant="subtle" color="red" leftSection={<IconX size={14} />} loading={busy === `reject${p.id}`} onClick={() => act(p, 'reject')}>{t('approvals.discard')}</Button>
               </Stack>
             </Card>
@@ -122,9 +124,10 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
                 {slot && <Text size="xs">{t('approvals.goesOut')} <b>{slot.format('dd, D MMM · HH:mm')}</b></Text>}
                 <Group gap={6} grow mt={4}>
                   <Button size="xs" color="green" leftSection={<IconCheck size={14} />} loading={busy === `approve${p.id}`} onClick={() => act(p, 'approve')}>{t('approvals.approve')}</Button>
-                  <Button size="xs" variant="default" leftSection={<IconRefresh size={14} />} loading={busy === `regenerate${p.id}`} onClick={() => act(p, 'regenerate')}>{t('approvals.another')}</Button>
+                  <Button size="xs" color="violet" leftSection={<IconRocket size={14} />} loading={busy === `now${p.id}`} onClick={() => act(p, 'now')}>{t('approvals.now')}</Button>
                 </Group>
                 <Group gap={6} grow>
+                  <Button size="xs" variant="default" leftSection={<IconRefresh size={14} />} loading={busy === `regenerate${p.id}`} onClick={() => act(p, 'regenerate')}>{t('approvals.another')}</Button>
                   <Button size="xs" variant="subtle" leftSection={<IconPencil size={14} />} onClick={() => setEditing(p)}>{t('approvals.edit')}</Button>
                   <Button size="xs" variant="subtle" color="red" leftSection={<IconX size={14} />} loading={busy === `reject${p.id}`} onClick={() => act(p, 'reject')}>{t('approvals.discard')}</Button>
                 </Group>

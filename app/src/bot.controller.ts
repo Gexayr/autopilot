@@ -211,6 +211,15 @@ export class BotController {
         const post = await this.posts.approve(id);
         return this.tg.clearKeyboard(chat, msgId, bt(lang, 'inQueue', { at: formatSlot(post.scheduledFor!, page.timezone, lang) }));
       }
+      case 'pn': { // publish right away instead of the next slot
+        await this.posts.ownedPost(user.id, id);
+        await this.posts.approveNow(id);
+        return this.tg.clearKeyboard(chat, msgId, bt(lang, 'publishing'));
+      }
+      case 'fp': // animate the still and publish the clip as soon as it is ready
+        await this.posts.ownedPost(user.id, id);
+        await this.posts.approveFrame(id, true);
+        return this.tg.clearKeyboard(chat, msgId, bt(lang, 'animatingNow'));
       case 'rj':
         await this.posts.ownedPost(user.id, id);
         await this.posts.reject(id);

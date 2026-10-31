@@ -148,7 +148,8 @@ export class PostsService {
     const { chat, lang } = to;
     const text = `${page.title} · ${post.kind === 'VIDEO' ? '🎬 Reels' : bt(lang, 'preview.post')} #${post.num ?? post.id}\n\n«${post.quote ?? ''}»\n\n${post.caption}`;
     const msg = await this.tg.sendMedia(chat, post.kind, mediaUrl(post.mediaFile!), text, [
-      [{ text: bt(lang, 'btn.approve'), callback_data: `ap:${post.id}` }, { text: bt(lang, 'btn.other'), callback_data: `rg:${post.id}` }],
+      [{ text: bt(lang, 'btn.approve'), callback_data: `ap:${post.id}` }, { text: bt(lang, 'btn.now'), callback_data: `pn:${post.id}` }],
+      [{ text: bt(lang, 'btn.other'), callback_data: `rg:${post.id}` }],
       [{ text: bt(lang, 'btn.edit'), callback_data: `ed:${post.id}` }, { text: '❌', callback_data: `rj:${post.id}` }],
     ]);
     await this.posts.update(post.id, { tgMessageId: String(msg.message_id) });
@@ -358,7 +359,7 @@ export class PostsService {
     const post = await this.posts.findOneByOrFail({ id: postId });
     const page = await this.pages.findOneByOrFail({ id: post.pageId! });
     if (post.render.frameOk) { // the still was approved already: the finished Reels goes straight to the queue
-      const queued = await this.approve(postId);
+      const queued = post.render.publishNow ? await this.approveNow(postId) : await this.approve(postId);
       const to = await this.chatOf(page);
       if (to) await this.tg.sendMedia(to.chat, 'VIDEO', mediaUrl(post.mediaFile!),
         bt(to.lang, 'reelQueued', { title: page.title, n: post.num ?? post.id, at: formatSlot(queued.scheduledFor!, page.timezone, to.lang) }),
@@ -367,6 +368,14 @@ export class PostsService {
     }
     if (page.autoApprove) return this.approve(postId);
     await this.sendPreview(post, page);
+  }
+
+  /** Approved and out within a minute (the scheduler publishes due posts every minute). */
+  async approveNow(postId: number): Promise<Post> {
+    await this.approve(postId);
+    const now = new Date();
+    await this.posts.update({ id: postId, status: 'approved' }, { scheduledFor: now });
+    return this.posts.findOneByOrFail({ id: postId });
   }
 
   /** AI Reels: the generator drew the still; the user decides before credits go into the clip. */
@@ -379,17 +388,19 @@ export class PostsService {
     if (!to) return; // decided on the website
     const msg = await this.tg.sendMedia(to.chat, 'IMAGE', mediaUrl(post.render.aiImage!),
       bt(to.lang, 'framePreview', { title: page.title, n: post.num ?? post.id, quote: post.quote ?? '' }), [
-        [{ text: bt(to.lang, 'btn.animate'), callback_data: `fv:${post.id}` }, { text: bt(to.lang, 'btn.newFrame'), callback_data: `fn:${post.id}` }],
+        [{ text: bt(to.lang, 'btn.animate'), callback_data: `fv:${post.id}` }, { text: bt(to.lang, 'btn.animateNow'), callback_data: `fp:${post.id}` }],
+        [{ text: bt(to.lang, 'btn.newFrame'), callback_data: `fn:${post.id}` }],
         [{ text: '❌', callback_data: `rj:${post.id}` }],
       ]);
     await this.posts.update(post.id, { tgMessageId: String(msg.message_id) });
   }
 
   /** Still approved: queue the clip. */
-  async approveFrame(postId: number) {
+  async approveFrame(postId: number, publishNow = false) {
     const post = await this.posts.findOneByOrFail({ id: postId });
     if (post.status !== 'frame_approval') throw new BadRequestException('Этот пост уже обработан');
-    await this.posts.update({ id: postId, status: 'frame_approval' }, { status: 'generating', render: { ...post.render, frameOk: true } });
+    await this.posts.update({ id: postId, status: 'frame_approval' },
+      { status: 'generating', render: { ...post.render, frameOk: true, ...(publishNow && { publishNow: true }) } });
     await this.jobs.insert({ postId });
   }
 

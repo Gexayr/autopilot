@@ -53,22 +53,23 @@ export class PostsController {
 
   @HttpPost('posts/:id/approve')
   @HttpCode(200)
-  async approve(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number) {
+  async approve(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @Body('now') now?: boolean) {
     const { post, page } = await this.posts.ownedPost(user.id, id);
     if (post.status !== 'awaiting_approval' && post.status !== 'draft' && post.status !== 'failed')
       throw new BadRequestException('Этот пост уже обработан');
     if (post.status === 'failed') await this.postRepo.update(id, { status: 'draft', attempts: 0 });
-    const done = await this.posts.approve(id);
-    await this.posts.closePreview(post, page, (l) => bt(l, 'web.approved', { at: formatSlot(done.scheduledFor!, page.timezone, l) }));
+    // now = publish within a minute instead of the next free slot
+    const done = now ? await this.posts.approveNow(id) : await this.posts.approve(id);
+    await this.posts.closePreview(post, page, (l) => now ? bt(l, 'publishing') : bt(l, 'web.approved', { at: formatSlot(done.scheduledFor!, page.timezone, l) }));
     return view(await this.postRepo.findOneByOrFail({ id }));
   }
 
   /** AI Reels: the still is fine, make the clip (it goes straight to the queue when ready). */
   @HttpPost('posts/:id/frame/approve')
   @HttpCode(200)
-  async approveFrame(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number) {
+  async approveFrame(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @Body('now') now?: boolean) {
     const { post, page } = await this.posts.ownedPost(user.id, id);
-    await this.posts.approveFrame(id);
+    await this.posts.approveFrame(id, !!now);
     await this.posts.closePreview(post, page, (l) => bt(l, 'animating'));
     return { ok: true };
   }
