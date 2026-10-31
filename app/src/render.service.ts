@@ -58,10 +58,11 @@ export class RenderService {
     }, [
       h('div', { fontSize: 230 * scale, lineHeight: 0.8, color: t.accent, height: 140 * scale, display: 'flex' }, '“'),
       h('div', { fontSize: size, lineHeight: 1.3, display: 'flex', flexWrap: 'wrap' }, quote),
-      h('div', { display: 'flex', alignItems: 'center', marginTop: 70 * scale }, [
+      // no signature: no line under the quote either
+      style.signature ? h('div', { display: 'flex', alignItems: 'center', marginTop: 70 * scale }, [
         h('div', { width: 90 * scale, height: 5 * scale, backgroundColor: t.accent, marginRight: 28 * scale, display: 'flex' }),
-        h('div', { fontFamily: 'Sans, Armenian', fontWeight: 400, fontSize: 34 * scale, opacity: 0.8, display: 'flex' }, style.signature ?? ''),
-      ]),
+        h('div', { fontFamily: 'Sans, Armenian', fontWeight: 400, fontSize: 34 * scale, opacity: 0.8, display: 'flex' }, style.signature),
+      ]) : null,
     ]);
     const svg = await satori(tree as any, { width, height, fonts: loadFonts() });
     return new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render().asPng();
@@ -120,10 +121,10 @@ export class RenderService {
         backgroundImage: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.82) 100%)',
       }, [
         h('div', { fontSize: size, lineHeight: 1.28, display: 'flex', flexWrap: 'wrap', textShadow: '0 2px 14px rgba(0,0,0,0.65)' }, quote),
-        h('div', { display: 'flex', alignItems: 'center', marginTop: 44 }, [
+        style.signature ? h('div', { display: 'flex', alignItems: 'center', marginTop: 44 }, [
           h('div', { width: 80, height: 5, backgroundColor: t.accent, marginRight: 24, display: 'flex' }),
-          h('div', { fontFamily: 'Sans, Armenian', fontWeight: 400, fontSize: 32, opacity: 0.85, display: 'flex' }, style.signature ?? ''),
-        ]),
+          h('div', { fontFamily: 'Sans, Armenian', fontWeight: 400, fontSize: 32, opacity: 0.85, display: 'flex' }, style.signature),
+        ]) : null,
       ]),
     ]);
     const svg = await satori(tree as any, { width, height, fonts: loadFonts() });

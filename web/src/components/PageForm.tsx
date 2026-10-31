@@ -117,45 +117,54 @@ export function StyleFields({ v, set, logo }: { v: PageDraft; set: Set; logo?: L
     return () => { if (url) URL.revokeObjectURL(url); };
   }, [style, v.language]);
 
+  const ai = v.style.media === 'ai';
+  // the quote is drawn on cards always, on AI media only when the switch is on
+  const withQuote = !ai || v.style.text !== false;
   return (
     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl">
       <Stack>
         <div>
-          <Text size="sm" fw={500} mb={6}>{t('form.colors')}</Text>
-          <Group gap="xs">
-            <UnstyledButton onClick={() => setStyle({ theme: undefined })}>
-              <Box p={4} style={{ border: `2px solid ${!v.style.theme ? 'var(--mantine-primary-color-filled)' : 'transparent'}`, borderRadius: 8 }}>
-                <Text size="xs" px={6} py={8}>{t('form.mixed')}</Text>
-              </Box>
-            </UnstyledButton>
-            {themes.data?.map((t) => (
-              <UnstyledButton key={t.key} onClick={() => setStyle({ theme: t.key })} title={t.key}>
-                <Box p={4} style={{ border: `2px solid ${v.style.theme === t.key ? 'var(--mantine-primary-color-filled)' : 'transparent'}`, borderRadius: 8 }}>
-                  <Box w={36} h={36} style={{ backgroundImage: t.bg, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text c={t.accent} fw={800} fz={22} lh={1} mt={8}>“</Text>
-                  </Box>
-                </Box>
-              </UnstyledButton>
-            ))}
-          </Group>
-        </div>
-        <div>
-          <Text size="sm" fw={500} mb={6}>{t('form.font')}</Text>
-          <SegmentedControl data={[{ value: 'serif', label: t('form.serif') }, { value: 'sans', label: t('form.sans') }]}
-            value={v.style.font ?? 'serif'} onChange={(f) => setStyle({ font: f as 'serif' | 'sans' })} />
-        </div>
-        <TextInput label={t('form.signature')} placeholder={t('form.signaturePh')} maxLength={40} value={v.style.signature ?? ''} onChange={(e) => setStyle({ signature: e.currentTarget.value })} />
-        <BrandFields style={v.style} setStyle={setStyle} logo={logo} />
-        <div>
           <Text size="sm" fw={500} mb={4}>{t('form.media')}</Text>
           <SegmentedControl fullWidth value={v.style.media ?? 'card'} onChange={(m) => setStyle({ media: m as 'card' | 'ai' })}
             data={[{ value: 'card', label: t('form.mediaCard') }, { value: 'ai', label: `✨ ${t('form.mediaAi')}` }]} />
-          <Text size="xs" c="dimmed" mt={4}>{t(v.style.media === 'ai' ? 'form.mediaAiHint' : 'form.mediaCardHint')}</Text>
+          <Text size="xs" c="dimmed" mt={4}>{t(ai ? 'form.mediaAiHint' : 'form.mediaCardHint')}</Text>
         </div>
-        {v.style.media === 'ai' && (
+        {ai && (
           <Switch checked={v.style.text !== false} onChange={(e) => setStyle({ text: e.currentTarget.checked })}
             label={t('form.textOnMedia')} description={t('form.textOnMediaHint')} />
         )}
+        {!ai && (
+          <div>
+            <Text size="sm" fw={500} mb={6}>{t('form.colors')}</Text>
+            <Group gap="xs">
+              <UnstyledButton onClick={() => setStyle({ theme: undefined })}>
+                <Box p={4} style={{ border: `2px solid ${!v.style.theme ? 'var(--mantine-primary-color-filled)' : 'transparent'}`, borderRadius: 8 }}>
+                  <Text size="xs" px={6} py={8}>{t('form.mixed')}</Text>
+                </Box>
+              </UnstyledButton>
+              {themes.data?.map((t) => (
+                <UnstyledButton key={t.key} onClick={() => setStyle({ theme: t.key })} title={t.key}>
+                  <Box p={4} style={{ border: `2px solid ${v.style.theme === t.key ? 'var(--mantine-primary-color-filled)' : 'transparent'}`, borderRadius: 8 }}>
+                    <Box w={36} h={36} style={{ backgroundImage: t.bg, borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text c={t.accent} fw={800} fz={22} lh={1} mt={8}>“</Text>
+                    </Box>
+                  </Box>
+                </UnstyledButton>
+              ))}
+            </Group>
+          </div>
+        )}
+        {withQuote && (
+          <>
+            <div>
+              <Text size="sm" fw={500} mb={6}>{t('form.font')}</Text>
+              <SegmentedControl data={[{ value: 'serif', label: t('form.serif') }, { value: 'sans', label: t('form.sans') }]}
+                value={v.style.font ?? 'serif'} onChange={(f) => setStyle({ font: f as 'serif' | 'sans' })} />
+            </div>
+            <TextInput label={t('form.signature')} description={t('form.signatureHint')} placeholder={t('form.signaturePh')} maxLength={40} value={v.style.signature ?? ''} onChange={(e) => setStyle({ signature: e.currentTarget.value })} />
+          </>
+        )}
+        <BrandFields style={v.style} setStyle={setStyle} logo={logo} />
       </Stack>
       <Box pos="relative" maw={320} mx="auto" w="100%">
         <Box className="media-box" style={{ aspectRatio: '4 / 5' }}>

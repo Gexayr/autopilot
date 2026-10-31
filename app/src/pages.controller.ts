@@ -71,7 +71,7 @@ function styleFields(s: any): PageStyle {
     style.theme = s.theme;
   }
   if (s?.font) style.font = s.font === 'sans' ? 'sans' : 'serif';
-  if (s?.signature) style.signature = String(s.signature).slice(0, 40);
+  if (s?.signature !== undefined) style.signature = String(s.signature ?? '').trim().slice(0, 40); // '' = no signature
   if (s?.media) style.media = s.media === 'ai' ? 'ai' : 'card';
   if (s?.text === false) style.text = false; // AI media without the quote on it (default: with)
   // brand; `logo` only passes for the preview, the page keeps the one its upload endpoint stored
@@ -184,7 +184,7 @@ export class PagesController {
     for (let i = 2; await this.pages.existsBy({ ownerId: user.id, slug }); i++) slug = `${slugify(acc.username)}-${i}`;
     const page = await this.pages.save(this.pages.create({
       slots: ['12:00'], reelsRatio: 0.3, bufferDays: 2, language: 'ru', timezone: 'Asia/Yerevan',
-      ...fields, style: { signature: `@${acc.username}`, ...fields.style }, ownerId: user.id, igAccountId: acc.id, slug,
+      ...fields, style: { signature: `@${acc.username}`, ...fields.style }, ownerId: user.id, igAccountId: acc.id, slug, // '' sent = none
     }));
     // first posts right away, so there is something to look at
     // "save and continue later" creates it paused and without posts
