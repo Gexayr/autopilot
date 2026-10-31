@@ -11,7 +11,7 @@ export const BOT_LANGS: { value: Lang; label: string }[] = [
 const ru = {
   help: `🤖 Автопилот Instagram
 
-Каждый день я готовлю посты для ваших рубрик и присылаю их сюда:
+Каждый день я готовлю посты для вашего контента и присылаю их сюда:
 ✅ в очередь (выйдет в ближайший свободный слот)
 🔄 сделать другой вариант
 ✏️ заменить текст на картинке
@@ -19,19 +19,19 @@ const ru = {
 
 Свой контент: пришлите фото или видео с подписью, и оно встанет в очередь.
 
-Рубрика: это тема и расписание постов для одного аккаунта Instagram.
+Контент: это о чём посты и их расписание для одного аккаунта Instagram.
 
-Команды (рубрику можно не указывать, если она одна):
-/pages: рубрики и их настройки
-/queue [рубрика]: очередь
-/del [рубрика] N: убрать пост N из очереди
-/now [рубрика]: опубликовать следующий пост сейчас
-/gen [рубрика] [пожелание]: сделать пост прямо сейчас
-/stats: какая рубрика и какой формат растут
-/pause рубрика · /resume рубрика
+Команды (контент можно не указывать, если он один):
+/pages: контент и его настройки
+/queue [контент]: очередь
+/del [контент] N: убрать пост N из очереди
+/now [контент]: опубликовать следующий пост сейчас
+/gen [контент] [пожелание]: сделать пост прямо сейчас
+/stats: какой контент и какой формат растут
+/pause контент · /resume контент
 /language: язык бота
 
-Всё то же самое (и подключение Instagram, и новые рубрики) есть на сайте: {url}`,
+Всё то же самое (и подключение Instagram, и новый контент) есть на сайте: {url}`,
   'btn.open': '🚀 Открыть Автопилот',
   menu: 'Открыть',
   'btn.approve': '✅ В очередь',
@@ -59,13 +59,13 @@ const ru = {
   generating: '⏳ Готовлю пост…',
   resumed: '🟢 {title}: работает',
   paused: '⏸ {title}: на паузе',
-  choosePage: 'Укажите рубрику: {list}',
-  noPagesShort: '(нет рубрик)',
+  choosePage: 'Укажите контент: {list}',
+  noPagesShort: '(нет контента)',
   albums: '⚠️ Альбомы пока не поддерживаются, пришлите по одному.',
   badFile: '⚠️ Нужно фото (JPEG) или видео (MP4/MOV). Картинку отправьте как фото, не файлом.',
   tooBig: '⚠️ Файл больше 20 МБ, бот не может его скачать. Загрузите его на сайте: {url}',
-  createFirst: '⚠️ Сначала создайте рубрику.',
-  whichPage: 'В какую рубрику?',
+  createFirst: '⚠️ Сначала создайте контент.',
+  whichPage: 'В какой контент?',
   queuedAt: '✅ {title}: в очереди, выйдет {at}',
   inQueue: '✅ В очереди: {at}',
   discarded: '❌ Выброшен',
@@ -92,17 +92,17 @@ const ru = {
   failDrop: '❌ {title}: пост «{q}» снова не опубликован и убран из очереди.\n{m}',
   stuck: '⚠️ Публикация поста #{id} прервалась (перезапуск сервера?). Проверьте Instagram: если поста нет, пришлите его заново.',
   noText: '(без текста)',
-  noPages: 'Рубрик пока нет.',
-  pagesTitle: '📄 Рубрики:',
+  noPages: 'Контента пока нет.',
+  pagesTitle: '📄 Контент:',
   pageLine: '{icon} {slug}: {title} (@{user})\n   слоты {slots} · Reels {reels}% · AI {ai}\n   в очереди {queued}, ждут одобрения {waiting}',
   'ai.on': 'вкл',
   'ai.off': 'выкл',
   queueTitle: '📋 {title}, в очереди {n}:',
   statsBlock: '📊 {title}\n   подписчики: {f} ({g} за {d} дн.)\n   охват в среднем: фото {ri}, Reels {rv}\n   лайки в среднем: фото {li}, Reels {lv}',
-  noActive: 'Нет активных рубрик.',
+  noActive: 'Нет активного контента.',
   chooseLang: '🌐 Выберите язык бота:',
   langSet: '✅ Язык бота: Русский',
-  'cmd.pages': 'Рубрики и их настройки',
+  'cmd.pages': 'Контент и его настройки',
   'cmd.queue': 'Очередь постов',
   'cmd.now': 'Опубликовать следующий пост сейчас',
   'cmd.gen': 'Сделать пост прямо сейчас',
@@ -116,7 +116,7 @@ type Key = keyof typeof ru;
 const en: Record<Key, string> = {
   help: `🤖 Instagram Autopilot
 
-Every day I prepare posts for your series and send them here:
+Every day I prepare posts for your content and send them here:
 ✅ to the queue (goes out in the next free slot)
 🔄 make another version
 ✏️ replace the text on the image
@@ -124,19 +124,19 @@ Every day I prepare posts for your series and send them here:
 
 Your own content: send a photo or video with a caption, and it will join the queue.
 
-A series is the topic and posting schedule for one Instagram account.
+Content is what the posts are about and their schedule, for one Instagram account.
 
-Commands (you can skip the series if you have only one):
-/pages: series and their settings
-/queue [series]: the queue
-/del [series] N: remove post N from the queue
-/now [series]: publish the next post now
-/gen [series] [wish]: make a post right now
-/stats: which series and format are growing
-/pause series · /resume series
+Commands (you can skip the content name if you have only one):
+/pages: content and its settings
+/queue [content]: the queue
+/del [content] N: remove post N from the queue
+/now [content]: publish the next post now
+/gen [content] [wish]: make a post right now
+/stats: which content and format are growing
+/pause content · /resume content
 /language: bot language
 
-You can do all of this (including connecting Instagram and creating series) on the website: {url}`,
+You can do all of this (including connecting Instagram and creating content) on the website: {url}`,
   'btn.open': '🚀 Open Autopilot',
   menu: 'Open',
   'btn.approve': '✅ Queue it',
@@ -164,13 +164,13 @@ You can do all of this (including connecting Instagram and creating series) on t
   generating: '⏳ Creating a post…',
   resumed: '🟢 {title}: running',
   paused: '⏸ {title}: paused',
-  choosePage: 'Choose a series: {list}',
-  noPagesShort: '(no series)',
+  choosePage: 'Choose the content: {list}',
+  noPagesShort: '(no content)',
   albums: '⚠️ Albums aren’t supported yet, please send items one by one.',
   badFile: '⚠️ A photo (JPEG) or a video (MP4/MOV) is needed. Send pictures as a photo, not as a file.',
   tooBig: '⚠️ The file is larger than 20 MB, so the bot can’t download it. Upload it on the website: {url}',
-  createFirst: '⚠️ Create a series first.',
-  whichPage: 'Which series?',
+  createFirst: '⚠️ Create content first.',
+  whichPage: 'Which content?',
   queuedAt: '✅ {title}: queued, goes out {at}',
   inQueue: '✅ Queued: {at}',
   discarded: '❌ Discarded',
@@ -197,17 +197,17 @@ You can do all of this (including connecting Instagram and creating series) on t
   failDrop: '❌ {title}: the post “{q}” failed again and was removed from the queue.\n{m}',
   stuck: '⚠️ Publishing post #{id} was interrupted (server restart?). Check Instagram: if the post isn’t there, send it again.',
   noText: '(no text)',
-  noPages: 'No series yet.',
-  pagesTitle: '📄 Series:',
+  noPages: 'No content yet.',
+  pagesTitle: '📄 Content:',
   pageLine: '{icon} {slug}: {title} (@{user})\n   times {slots} · Reels {reels}% · AI {ai}\n   queued {queued}, awaiting approval {waiting}',
   'ai.on': 'on',
   'ai.off': 'off',
   queueTitle: '📋 {title}, queued {n}:',
   statsBlock: '📊 {title}\n   followers: {f} ({g} in {d} d)\n   average reach: photo {ri}, Reels {rv}\n   average likes: photo {li}, Reels {lv}',
-  noActive: 'No active series.',
+  noActive: 'No active content.',
   chooseLang: '🌐 Choose the bot language:',
   langSet: '✅ Bot language: English',
-  'cmd.pages': 'Series and their settings',
+  'cmd.pages': 'Content and its settings',
   'cmd.queue': 'Post queue',
   'cmd.now': 'Publish the next post now',
   'cmd.gen': 'Make a post right now',
@@ -219,7 +219,7 @@ You can do all of this (including connecting Instagram and creating series) on t
 const hy: Record<Key, string> = {
   help: `🤖 Instagram-ի Ավտոպիլոտ
 
-Ամեն օր ես պատրաստում եմ գրառումներ ձեր ռուբրիկաների համար և ուղարկում այստեղ.
+Ամեն օր ես պատրաստում եմ գրառումներ ձեր թեմաների համար և ուղարկում այստեղ.
 ✅ հերթում (կհրապարակվի մոտակա ազատ ժամին)
 🔄 պատրաստել այլ տարբերակ
 ✏️ փոխել նկարի տեքստը
@@ -227,19 +227,19 @@ const hy: Record<Key, string> = {
 
 Ձեր սեփական բովանդակությունը. ուղարկեք լուսանկար կամ տեսանյութ նկարագրությամբ, և այն կավելանա հերթում։
 
-Ռուբրիկան մեկ Instagram հաշվի գրառումների թեման և ժամանակացույցն է։
+Թեման այն է, թե ինչի մասին են գրառումները և դրանց ժամանակացույցը մեկ Instagram հաշվի համար։
 
-Հրամաններ (ռուբրիկան կարելի է չնշել, եթե այն մեկն է).
-/pages՝ ռուբրիկաները և դրանց կարգավորումները
-/queue [ռուբրիկա]՝ հերթը
-/del [ռուբրիկա] N՝ հանել N համարի գրառումը հերթից
-/now [ռուբրիկա]՝ հրապարակել հաջորդ գրառումը հիմա
-/gen [ռուբրիկա] [ցանկություն]՝ պատրաստել գրառում հենց հիմա
-/stats՝ որ ռուբրիկան և որ ձևաչափն են աճում
-/pause ռուբրիկա · /resume ռուբրիկա
+Հրամաններ (թեման կարելի է չնշել, եթե այն մեկն է).
+/pages՝ թեմաները և դրանց կարգավորումները
+/queue [թեմա]՝ հերթը
+/del [թեմա] N՝ հանել N համարի գրառումը հերթից
+/now [թեմա]՝ հրապարակել հաջորդ գրառումը հիմա
+/gen [թեմա] [ցանկություն]՝ պատրաստել գրառում հենց հիմա
+/stats՝ որ թեման և որ ձևաչափն են աճում
+/pause թեմա · /resume թեմա
 /language՝ բոտի լեզուն
 
-Այս ամենը (նաև Instagram-ի միացումը և նոր ռուբրիկաները) հասանելի է կայքում՝ {url}`,
+Այս ամենը (նաև Instagram-ի միացումը և նոր թեմաները) հասանելի է կայքում՝ {url}`,
   'btn.open': '🚀 Բացել Ավտոպիլոտը',
   menu: 'Բացել',
   'btn.approve': '✅ Հերթում',
@@ -267,13 +267,13 @@ const hy: Record<Key, string> = {
   generating: '⏳ Պատրաստում եմ գրառումը…',
   resumed: '🟢 {title}. աշխատում է',
   paused: '⏸ {title}. դադարեցված է',
-  choosePage: 'Նշեք ռուբրիկան՝ {list}',
-  noPagesShort: '(ռուբրիկաներ չկան)',
+  choosePage: 'Նշեք թեման՝ {list}',
+  noPagesShort: '(թեմաներ չկան)',
   albums: '⚠️ Ալբոմները դեռ չեն աջակցվում, ուղարկեք մեկ առ մեկ։',
   badFile: '⚠️ Անհրաժեշտ է լուսանկար (JPEG) կամ տեսանյութ (MP4/MOV)։ Նկարն ուղարկեք որպես լուսանկար, ոչ թե ֆայլ։',
   tooBig: '⚠️ Ֆայլը 20 ՄԲ-ից մեծ է, բոտը չի կարող այն ներբեռնել։ Վերբեռնեք այն կայքում՝ {url}',
-  createFirst: '⚠️ Նախ ստեղծեք ռուբրիկա։',
-  whichPage: 'Ո՞ր ռուբրիկայում։',
+  createFirst: '⚠️ Նախ ստեղծեք թեմա։',
+  whichPage: 'Ո՞ր թեմայում։',
   queuedAt: '✅ {title}. հերթում է, կհրապարակվի {at}',
   inQueue: '✅ Հերթում է՝ {at}',
   discarded: '❌ Մերժված է',
@@ -300,17 +300,17 @@ const hy: Record<Key, string> = {
   failDrop: '❌ {title}. «{q}» գրառումը կրկին չհրապարակվեց և հանվեց հերթից։\n{m}',
   stuck: '⚠️ #{id} գրառման հրապարակումն ընդհատվեց (սերվերի վերագործարկում՞)։ Ստուգեք Instagram-ը. եթե գրառումը չկա, ուղարկեք այն նորից։',
   noText: '(առանց տեքստի)',
-  noPages: 'Ռուբրիկաներ դեռ չկան։',
-  pagesTitle: '📄 Ռուբրիկաներ.',
+  noPages: 'Թեմաներ դեռ չկան։',
+  pagesTitle: '📄 Թեմաներ.',
   pageLine: '{icon} {slug}: {title} (@{user})\n   ժամեր {slots} · Reels {reels}% · AI {ai}\n   հերթում {queued}, սպասում են հաստատման {waiting}',
   'ai.on': 'միացված',
   'ai.off': 'անջատված',
   queueTitle: '📋 {title}, հերթում՝ {n}.',
   statsBlock: '📊 {title}\n   հետևորդներ՝ {f} ({g} {d} օրում)\n   միջին ընդգրկում՝ լուսանկար {ri}, Reels {rv}\n   միջին հավանումներ՝ լուսանկար {li}, Reels {lv}',
-  noActive: 'Ակտիվ ռուբրիկաներ չկան։',
+  noActive: 'Ակտիվ թեմաներ չկան։',
   chooseLang: '🌐 Ընտրեք բոտի լեզուն.',
   langSet: '✅ Բոտի լեզուն՝ Հայերեն',
-  'cmd.pages': 'Ռուբրիկաները և կարգավորումները',
+  'cmd.pages': 'Թեմաները և կարգավորումները',
   'cmd.queue': 'Գրառումների հերթը',
   'cmd.now': 'Հրապարակել հաջորդ գրառումը հիմա',
   'cmd.gen': 'Պատրաստել գրառում հենց հիմա',

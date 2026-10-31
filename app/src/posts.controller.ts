@@ -127,7 +127,7 @@ export class PostsController {
     let name = file.filename;
     try {
       const page = await this.pages.findOneBy({ id: Number(b.pageId), ownerId: user.id });
-      if (!page) throw new BadRequestException('Выберите рубрику');
+      if (!page) throw new BadRequestException('Выберите контент');
       const { kind } = MIME[file.mimetype];
       if (kind === 'IMAGE') { // Instagram takes JPEG only; also keeps the ratio within 4:5 … 1.91:1
         const jpg = randomName('jpg');

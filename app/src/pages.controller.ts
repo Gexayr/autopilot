@@ -116,7 +116,7 @@ export class PagesController {
   async deleteAccount(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number) {
     const acc = await this.accounts.findOneBy({ id, ownerId: user.id });
     if (!acc) throw new NotFoundException();
-    if (await this.pages.countBy({ igAccountId: id })) throw new BadRequestException('Сначала удалите рубрики этого аккаунта');
+    if (await this.pages.countBy({ igAccountId: id })) throw new BadRequestException('Сначала удалите контент этого аккаунта');
     await this.accounts.delete(id);
     return { ok: true };
   }
@@ -137,7 +137,7 @@ export class PagesController {
   @HttpPost('pages')
   async createPage(@CurrentUser() user: User, @Body() body: any) {
     const count = await this.pages.countBy({ ownerId: user.id });
-    if (count >= user.maxPages) throw new BadRequestException(`Лимит рубрик: ${user.maxPages}`);
+    if (count >= user.maxPages) throw new BadRequestException(`Лимит контента: ${user.maxPages}`);
     const acc = await this.accounts.findOneBy({ id: Number(body.igAccountId), ownerId: user.id });
     if (!acc) throw new BadRequestException('Выберите подключённый аккаунт Instagram');
     const fields = pageFields(body, false);
@@ -237,7 +237,7 @@ export class PagesController {
 
   private async owned(user: User, id: number) {
     const page = await this.pages.findOneBy({ id, ownerId: user.id });
-    if (!page) throw new NotFoundException('Рубрика не найдена');
+    if (!page) throw new NotFoundException('Контент не найден');
     return page;
   }
 
