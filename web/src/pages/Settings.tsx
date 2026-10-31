@@ -1,7 +1,8 @@
 import { Alert, Anchor, Avatar, Badge, Box, Button, Card, Group, Loader, NumberInput, Stack, Table, Text, Title } from '@mantine/core';
-import { IconBrandGoogle, IconBrandTelegram, IconCheck, IconLink, IconLogout, IconX } from '@tabler/icons-react';
+import { IconBrandGoogle, IconBrandInstagram, IconBrandTelegram, IconCheck, IconChevronRight, IconLink, IconLogout, IconX } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { AccessRequest, AdminUser, api } from '../api';
+import { AccessRequest, Account, AdminUser, api } from '../api';
 import { loadGoogle, telegramLogin, useAuth } from '../auth';
 import { useAction, useLoad } from '../hooks';
 import { LangSegmented } from '../components/LangSwitch';
@@ -47,6 +48,8 @@ export default function Settings() {
           </div>
         </Group>
       </Card>
+
+      <InstagramCard />
 
       <Card withBorder>
         <Text fw={600}>{t('settings.interfaceLang')}</Text>
@@ -152,6 +155,29 @@ function AdminAccessRequests() {
           </Group>
         ))}
       </Stack>
+    </Card>
+  );
+}
+
+/** On phones the bottom bar has no room for "Instagram", so accounts are reached from here. */
+function InstagramCard() {
+  const nav = useNavigate();
+  const accounts = useLoad(() => api<Account[]>('accounts'));
+  const list = accounts.data ?? [];
+  return (
+    <Card withBorder>
+      <Group justify="space-between" wrap="nowrap">
+        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+          <IconBrandInstagram color="#E1306C" />
+          <div style={{ minWidth: 0 }}>
+            <Text fw={600}>{t('accounts.title')}</Text>
+            <Text size="sm" c="dimmed" truncate>{list.length ? list.map((a) => '@' + a.username).join(', ') : t('settings.noAccounts')}</Text>
+          </div>
+        </Group>
+        <Button variant="default" rightSection={<IconChevronRight size={16} />} onClick={() => nav('/accounts')} style={{ flexShrink: 0 }}>
+          {t('settings.manage')}
+        </Button>
+      </Group>
     </Card>
   );
 }

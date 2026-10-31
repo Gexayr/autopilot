@@ -103,7 +103,7 @@ function Shell() {
         <AppShell.Footer>
           <Group className="bottom-nav" gap={0} h="100%" wrap="nowrap">
             {NAV.filter((n) => n.to !== '/accounts').map((n) => (
-              <RouterLink key={n.to} to={n.to} className={isActive(n.to) ? 'active' : ''}>
+              <RouterLink key={n.to} to={n.to} className={isActive(n.to) || (n.to === '/settings' && isActive('/accounts')) ? 'active' : ''}>
                 <Box pos="relative" display="inline-block">
                   <n.icon size={22} />
                   {n.to === '/approvals' && nWaiting > 0 && <Badge size="xs" circle pos="absolute" top={-4} right={-10}>{nWaiting}</Badge>}
