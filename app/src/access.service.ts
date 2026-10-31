@@ -72,7 +72,7 @@ export class AccessService {
     const mine = await this.requests.find({ where: { userId: user.id, status: In(['invited', 'connected']) } });
     if (mine.some((r) => r.username === username.toLowerCase())) return;
     throw new BadRequestException(mine.length
-      ? `Вы вошли в @${username}, а одобрен ${mine.map((r) => '@' + r.username).join(', ')}. Выйдите из Instagram и войдите в нужный аккаунт.`
+      ? `Вы вошли в @${username}, а для вас ${mine.length > 1 ? 'одобрены' : 'одобрен'} ${mine.map((r) => '@' + r.username).join(', ')}. Выйдите из Instagram и войдите в нужный аккаунт.`
       : `Вы вошли в @${username}, но заявки на этот аккаунт нет. Сначала запросите доступ для @${username}.`);
   }
 
