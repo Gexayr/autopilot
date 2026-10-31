@@ -248,6 +248,7 @@ const ru = {
   'accounts.tokenDays': 'доступ продлевается сам · {n} дн.',
   'accounts.removeRubricsFirst': 'Сначала удалите контент этого аккаунта',
   'accounts.disconnect': 'Отключить',
+  'accounts.disconnectHint': 'Чтобы отключить аккаунт, сначала удалите его контент: нажмите на название выше → «Удаление».',
 
   'connect.button': 'Подключить Instagram',
   'connect.check.title': 'Перед подключением',
@@ -556,6 +557,7 @@ const en: Dict = {
   'accounts.tokenDays': 'access renews automatically · {n} d',
   'accounts.removeRubricsFirst': 'Delete this account’s content first',
   'accounts.disconnect': 'Disconnect',
+  'accounts.disconnectHint': 'To disconnect the account, first delete its content: tap the name above → “Delete”.',
 
   'connect.button': 'Connect Instagram',
   'connect.check.title': 'Before you connect',
@@ -861,6 +863,7 @@ const hy: Dict = {
   'accounts.tokenDays': 'մուտքը երկարաձգվում է ինքնաբերաբար · {n} օր',
   'accounts.removeRubricsFirst': 'Նախ ջնջեք այս հաշվի թեմաները',
   'accounts.disconnect': 'Անջատել',
+  'accounts.disconnectHint': 'Հաշիվն անջատելու համար նախ ջնջեք դրա թեման. սեղմեք վերևի անվան վրա → «Ջնջում»։',
 
   'connect.button': 'Միացնել Instagram-ը',
   'connect.check.title': 'Միացնելուց առաջ',

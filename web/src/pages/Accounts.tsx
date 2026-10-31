@@ -1,7 +1,7 @@
 import { Alert, Anchor, Avatar, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { Account, api } from '../api';
 import InstagramConnect, { ATTEMPT_KEY, RETURN_KEY } from '../components/InstagramConnect';
@@ -53,14 +53,17 @@ export default function Accounts() {
                   <Anchor href={`https://instagram.com/${a.username}`} target="_blank" fw={600}>@{a.username}</Anchor>
                   <Text size="sm" c="dimmed">{tn('accounts.followers', a.followers ?? 0, { n: fmtNum(a.followers) })} · {tn('accounts.posts', a.mediaCount ?? 0, { n: fmtNum(a.mediaCount) })}</Text>
                   <Group gap={6} mt={4}>
-                    {a.pages.map((p) => <Badge key={p.id} variant="light">{p.title}</Badge>)}
+                    {a.pages.map((p) => <Badge key={p.id} variant="light" component={RouterLink} to={`/pages/${p.id}`} style={{ cursor: 'pointer' }}>{p.title}</Badge>)}
                     {days != null && <Badge color={days < 10 ? 'red' : 'gray'} variant="outline">{t('accounts.tokenDays', { n: days })}</Badge>}
                   </Group>
                   {a.lastError && <Text size="xs" c="red" mt={4}>{a.lastError}</Text>}
                 </div>
               </Group>
-              <Button variant="subtle" color="red" size="xs" leftSection={<IconTrash size={14} />} loading={busy === `d${a.id}`}
-                disabled={a.pages.length > 0} title={a.pages.length ? t('accounts.removeRubricsFirst') : ''} onClick={() => remove(a)}>{t('accounts.disconnect')}</Button>
+              <Stack gap={4} align="flex-start">
+                <Button variant="subtle" color="red" size="xs" leftSection={<IconTrash size={14} />} loading={busy === `d${a.id}`}
+                  disabled={a.pages.length > 0} onClick={() => remove(a)}>{t('accounts.disconnect')}</Button>
+                {a.pages.length > 0 && <Text size="xs" c="dimmed">{t('accounts.disconnectHint')}</Text>}
+              </Stack>
             </Group>
           </Card>
         );
