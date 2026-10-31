@@ -1,5 +1,5 @@
 # Build context: the repo root (see docker-compose.yml) — the image holds the API and the built web app.
-ARG BASE_IMAGE=node:20-slim
+ARG BASE_IMAGE=node:22-slim
 FROM ${BASE_IMAGE} AS web
 WORKDIR /web
 COPY web/package*.json ./
