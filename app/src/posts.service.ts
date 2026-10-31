@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { DateTime } from 'luxon';
 import { DataSource, In, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
 import { config, mediaUrl } from './config';
-import { Page, PageStat, Post, PostStatus, User } from './entities';
+import { MediaJob, Page, PageStat, Post, PostStatus, User } from './entities';
 import { GeminiError, GeminiService } from './gemini.service';
 import { InstagramService } from './instagram.service';
 import { pickTheme, RenderService } from './render.service';
@@ -28,6 +28,7 @@ export class PostsService {
     @InjectRepository(Page) private readonly pages: Repository<Page>,
     @InjectRepository(PageStat) private readonly pageStats: Repository<PageStat>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(MediaJob) private readonly jobs: Repository<MediaJob>,
     private readonly ig: InstagramService,
     private readonly gemini: GeminiService,
     private readonly render: RenderService,
@@ -96,16 +97,21 @@ export class PostsService {
       const g = await this.gemini.generate(page, recent.map((p) => p.quote!), hint, lang);
       const kind = Math.random() < page.reelsRatio ? 'VIDEO' : 'IMAGE';
       const theme = pickTheme(page.style, Math.floor(Math.random() * 1000));
+      const ai = page.style.media === 'ai';
       const post = this.posts.create({
-        pageId: page.id, kind, source: 'ai', status: 'awaiting_approval', quote: g.quote,
+        pageId: page.id, kind, source: 'ai', status: ai ? 'generating' : 'awaiting_approval', quote: g.quote,
         caption: `${g.caption}\n\n${g.hashtags.map((t) => `#${t}`).join(' ')}`.slice(0, 2200),
-        contentHash: hashQuote(g.quote), render: { theme, ...(lang && { lang }) },
+        contentHash: hashQuote(g.quote), render: { theme, ...(lang && { lang }), ...(ai && { scene: g.scene, motion: g.motion }) },
       });
       try {
         await this.posts.insert(post);
       } catch (e: any) {
         if (e.code === UNIQUE_VIOLATION && attempt < 2) continue; // repeated quote: ask again
         throw e;
+      }
+      if (ai) { // the generator container makes the picture / clip and then calls releaseGenerated()
+        await this.jobs.insert({ postId: post.id });
+        return post;
       }
       try {
         await this.renderMedia(post, page);
@@ -119,11 +125,13 @@ export class PostsService {
     }
   }
 
-  private async renderMedia(post: Post, page: Page) {
+  /** The quote on top of the AI picture / clip when there is one, otherwise the quote card. */
+  async renderMedia(post: Post, page: Page) {
     const old = post.mediaFile;
+    const { theme, aiImage, aiVideo } = post.render;
     post.mediaFile = post.kind === 'VIDEO'
-      ? await this.render.quoteReel(post.quote!, page.style, post.render.theme!)
-      : await this.render.quoteImage(post.quote!, page.style, post.render.theme!);
+      ? aiVideo ? await this.render.overlayVideo(aiVideo, post.quote!, page.style, theme!) : await this.render.quoteReel(post.quote!, page.style, theme!)
+      : aiImage ? await this.render.overlayImage(aiImage, post.quote!, page.style, theme!) : await this.render.quoteImage(post.quote!, page.style, theme!);
     await this.posts.update(post.id, { mediaFile: post.mediaFile });
     if (old) await this.removeFile(old);
   }
@@ -147,6 +155,7 @@ export class PostsService {
       const pending = await this.posts.count({
         where: [
           { pageId: page.id, status: 'awaiting_approval' },
+          { pageId: page.id, status: 'generating' },
           { pageId: page.id, status: 'approved', scheduledFor: MoreThan(new Date()) },
         ],
       });
@@ -212,7 +221,7 @@ export class PostsService {
     const post = await this.posts.findOneByOrFail({ id: postId });
     if (post.status === 'published' || post.status === 'publishing') return post;
     await this.posts.update(post.id, { status: 'rejected', scheduledFor: null, mediaFile: null });
-    if (post.mediaFile) await this.removeFile(post.mediaFile);
+    await this.removeFiles(post);
     return post;
   }
 
@@ -279,7 +288,7 @@ export class PostsService {
       const acc = await this.ig.account(page.igAccountId);
       const r = await this.ig.publish(acc, post.kind, mediaUrl(post.mediaFile!), post.caption);
       await this.posts.update(id, { status: 'published', publishedAt: new Date(), igMediaId: r.mediaId, permalink: r.permalink, error: null, mediaFile: null });
-      await this.removeFile(post.mediaFile!);
+      await this.removeFiles(post);
       const left = await this.posts.count({ where: { pageId: page.id, status: 'approved' } });
       await this.notify(page, (l) => bt(l, 'published', { title: page.title, link: r.permalink ? `\n${r.permalink}` : '', left }));
     } catch (e) {
@@ -304,6 +313,21 @@ export class PostsService {
       const page = await this.pages.findOneByOrFail({ id: p.pageId! });
       await this.notify(page, (l) => bt(l, 'stuck', { id: p.id }));
     }
+  }
+
+  /** The post's own media plus the raw AI picture / clip under it. */
+  async removeFiles(post: Post) {
+    for (const f of [post.mediaFile, post.render?.aiImage, post.render?.aiVideo]) if (f) await this.removeFile(f);
+  }
+
+  /** The generator is done with the post (or gave up and made a quote card): it goes to approval like any other. */
+  async releaseGenerated(postId: number) {
+    const r = await this.posts.update({ id: postId, status: 'generating' }, { status: 'awaiting_approval' });
+    if (!r.affected) return; // rejected or deleted meanwhile
+    const post = await this.posts.findOneByOrFail({ id: postId });
+    const page = await this.pages.findOneByOrFail({ id: post.pageId! });
+    if (page.autoApprove) return this.approve(postId);
+    await this.sendPreview(post, page);
   }
 
   private removeFile(file: string) {

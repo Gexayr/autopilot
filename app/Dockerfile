@@ -19,6 +19,8 @@ FROM ${BASE_IMAGE} AS prod
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg fonts-noto-core ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+# PixVerse CLI for the generator container (spends the accounts' own credits, see src/media.providers.ts)
+RUN npm install -g --no-audit --no-fund pixverse@1.4.16
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules

@@ -1,9 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Patch, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { config } from './config';
 import { AdminOnly, AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
-import { Page, User } from './entities';
+import { Kv, Page, User } from './entities';
 
 @Controller('api/admin')
 @UseGuards(AuthGuard)
@@ -13,7 +15,37 @@ export class AdminController {
     private readonly auth: AuthService,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(Page) private readonly pages: Repository<Page>,
+    @InjectRepository(Kv) private readonly kv: Repository<Kv>,
+    @InjectDataSource() private readonly db: DataSource,
   ) {}
+
+  /** AI generator health: PixVerse logins (checked by the generator) and today's jobs per provider. */
+  @Get('generator')
+  async generator() {
+    const accounts = await Promise.all(Array.from({ length: config.pixverse.accounts }, async (_, i) => {
+      const acc = `acc${i + 1}`;
+      const s = (await this.kv.findOneBy({ key: `gen:pxv:${acc}` }))?.value as { loggedIn: boolean; at: number } | undefined;
+      return { acc, loggedIn: s?.loggedIn ?? null, checkedAt: s?.at ? new Date(s.at) : null };
+    }));
+    const [jobs] = await this.db.query(`
+      SELECT count(*) FILTER (WHERE status = 'queued')::int AS queued, count(*) FILTER (WHERE status = 'running')::int AS running,
+             count(*) FILTER (WHERE status = 'done' AND "finishedAt" > now() - interval '1 day')::int AS done,
+             count(*) FILTER (WHERE status = 'failed' AND "finishedAt" > now() - interval '1 day')::int AS failed
+      FROM media_jobs`);
+    const providers = await this.db.query(`
+      SELECT s->>'provider' AS provider, count(*) FILTER (WHERE (s->>'ok')::boolean)::int AS ok, count(*) FILTER (WHERE NOT (s->>'ok')::boolean)::int AS errors
+      FROM media_jobs, jsonb_array_elements(steps) s WHERE "createdAt" > now() - interval '1 day' GROUP BY 1 ORDER BY 1`);
+    return { dashscope: !!config.dashscope.apiKey, accounts, jobs, providers };
+  }
+
+  /** The generator picks this up within a minute and sends the login link to the admins in Telegram. */
+  @Post('generator/pixverse/:acc/login')
+  @HttpCode(202)
+  async pixverseLogin(@Param('acc') acc: string) {
+    if (!/^acc\d+$/.test(acc) || Number(acc.slice(3)) > config.pixverse.accounts) throw new BadRequestException('bad account');
+    await this.kv.save({ key: `gen:login-request:${acc}`, value: Date.now() });
+    return { ok: true };
+  }
 
   @Get('users')
   async list() {

@@ -3,6 +3,7 @@ import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateCol
 export type PostKind = 'IMAGE' | 'VIDEO';
 export type PostStatus =
   | 'draft' // uploaded by hand, page not chosen yet
+  | 'generating' // AI image / video is being made by the generator (media_jobs)
   | 'awaiting_approval'
   | 'approved' // has scheduledFor
   | 'publishing'
@@ -14,6 +15,25 @@ export interface PageStyle {
   theme?: string; // key of THEMES in render.service.ts; empty = rotate
   font?: 'serif' | 'sans';
   signature?: string; // small text at the bottom, e.g. @handle
+  media?: 'card' | 'ai'; // quote card (default) or AI image / video under the quote
+}
+
+/** A recurring character drawn into AI scenes from reference images (files in MEDIA_DIR). */
+export interface PageCharacter {
+  enabled: boolean;
+  description: string; // e.g. "Astro, a small white robot with a blue visor"
+  refs: string[];
+}
+
+/** Raw AI media of a post, kept so the quote can be re-rendered on top after an edit. */
+export interface PostRender {
+  theme?: string;
+  lang?: string; // set when it differs from the page's
+  scene?: string; // English image prompt from Gemini
+  motion?: string; // English camera / motion prompt for the clip
+  aiImage?: string;
+  aiVideo?: string;
+  fallback?: boolean; // AI failed, the post got a quote card instead
 }
 
 export type UserRole = 'admin' | 'user';
@@ -62,6 +82,7 @@ export class Page {
   @Column({ default: true }) active: boolean;
   @Column({ default: true }) aiEnabled: boolean;
   @Column({ default: false }) autoApprove: boolean;
+  @Column({ type: 'jsonb', nullable: true }) character: PageCharacter | null;
   @CreateDateColumn({ type: 'timestamptz' }) createdAt: Date;
 }
 
@@ -75,7 +96,7 @@ export class Post {
   @Column({ type: 'text', nullable: true }) quote: string | null;
   @Column({ type: 'text', default: '' }) caption: string;
   @Column({ type: 'varchar', nullable: true }) mediaFile: string | null;
-  @Column({ type: 'jsonb', default: {} }) render: { theme?: string; lang?: string }; // lang: set when it differs from the page's
+  @Column({ type: 'jsonb', default: {} }) render: PostRender;
   @Column({ type: 'varchar', nullable: true }) contentHash: string | null;
   @Column({ type: 'timestamptz', nullable: true }) scheduledFor: Date | null;
   @Column({ type: 'timestamptz', nullable: true }) publishingAt: Date | null;
@@ -112,6 +133,23 @@ export class IgAccessRequest {
   @UpdateDateColumn({ type: 'timestamptz' }) updatedAt: Date;
 }
 
+export type MediaJobStatus = 'queued' | 'running' | 'done' | 'failed';
+
+/** One AI media job per post, done by the generator container (src/generator.ts). */
+@Entity('media_jobs')
+export class MediaJob {
+  @PrimaryGeneratedColumn() id: number;
+  @Column() postId: number;
+  @Column({ type: 'varchar', default: 'queued' }) status: MediaJobStatus;
+  @Column({ default: 0 }) attempts: number;
+  @Column({ type: 'text', nullable: true }) error: string | null;
+  // every provider call: which one, whether it worked, how long it took
+  @Column({ type: 'jsonb', default: [] }) steps: { step: 'image' | 'video'; provider: string; ok: boolean; ms: number; error?: string }[];
+  @CreateDateColumn({ type: 'timestamptz' }) createdAt: Date;
+  @Column({ type: 'timestamptz', nullable: true }) startedAt: Date | null;
+  @Column({ type: 'timestamptz', nullable: true }) finishedAt: Date | null;
+}
+
 // Small key/value store: scheduler timestamps, pending Telegram edits.
 @Entity('kv')
 export class Kv {
@@ -119,4 +157,4 @@ export class Kv {
   @Column({ type: 'jsonb' }) value: unknown;
 }
 
-export const ENTITIES = [User, IgAccount, Page, Post, PageStat, Kv, IgAccessRequest];
+export const ENTITIES = [User, IgAccount, Page, Post, PageStat, Kv, IgAccessRequest, MediaJob];

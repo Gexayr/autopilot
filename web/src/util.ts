@@ -15,7 +15,7 @@ export const fmtTime = (iso: string | null, tz?: string) => (iso ? (tz ? dayjs(i
 export const fmtNum = (n: number | null | undefined) => (n == null ? '-' : n.toLocaleString(NUMBER_LOCALE[lang()]));
 
 const STATUS_COLORS: Record<PostStatus, string> = {
-  draft: 'gray', awaiting_approval: 'yellow', approved: 'blue', publishing: 'cyan', published: 'green', failed: 'red', rejected: 'gray',
+  draft: 'gray', generating: 'grape', awaiting_approval: 'yellow', approved: 'blue', publishing: 'cyan', published: 'green', failed: 'red', rejected: 'gray',
 };
 export const STATUS = Object.fromEntries(Object.entries(STATUS_COLORS).map(([k, color]) => [k, {
   color, get label() { return t(`status.${k}` as Parameters<typeof t>[0]); },

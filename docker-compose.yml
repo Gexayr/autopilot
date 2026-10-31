@@ -19,6 +19,7 @@ services:
       retries: 10
 
   app:
+    image: autopilot-app:latest
     build:
       context: .
       dockerfile: app/Dockerfile
@@ -40,6 +41,29 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:3010:3000"
+    mem_limit: 768m
+
+  # AI pictures / clips for posts (src/generator.ts): same image, its own process and queue (media_jobs)
+  generator:
+    image: autopilot-app:latest
+    restart: unless-stopped
+    command: ["node", "dist/generator.js"]
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: db
+      DB_USER: autopilot
+      DB_NAME: autopilot
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      MEDIA_DIR: /media
+      PIXVERSE_DIR: /pixverse
+    volumes:
+      - /var/www/autopilot-media:/media
+      # one logged-in PixVerse account per sub-folder (acc1, acc2, …), owned by uid 1000 (node)
+      - /var/lib/autopilot/pixverse:/pixverse
+    depends_on:
+      app:
+        condition: service_started
     mem_limit: 768m
 
 volumes:

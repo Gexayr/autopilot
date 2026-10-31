@@ -1,4 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post as HttpPost, Query, Res, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post as HttpPost, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import sharp from 'sharp';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Response } from 'express';
 import { DateTime } from 'luxon';
@@ -6,9 +9,9 @@ import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { In, MoreThan, MoreThanOrEqual, Not, IsNull, Repository } from 'typeorm';
 import { AuthGuard, CurrentUser } from './auth.guard';
-import { config } from './config';
-import { sign } from './crypto.util';
-import { IgAccount, Page, PageStat, PageStyle, Post, User } from './entities';
+import { config, mediaUrl } from './config';
+import { randomName, sign } from './crypto.util';
+import { IgAccount, Page, PageCharacter, PageStat, PageStyle, Post, User } from './entities';
 import { InstagramService } from './instagram.service';
 import { PostsService } from './posts.service';
 import { pickTheme, RenderService, THEMES } from './render.service';
@@ -68,6 +71,7 @@ function styleFields(s: any): PageStyle {
   }
   if (s?.font) style.font = s.font === 'sans' ? 'sans' : 'serif';
   if (s?.signature) style.signature = String(s.signature).slice(0, 40);
+  if (s?.media) style.media = s.media === 'ai' ? 'ai' : 'card';
   return style;
 }
 
@@ -163,7 +167,39 @@ export class PagesController {
       if (!acc) throw new BadRequestException('Аккаунт не найден');
       fields.igAccountId = acc.id;
     }
+    if (body.character !== undefined) fields.character = {
+      enabled: !!body.character?.enabled,
+      description: String(body.character?.description ?? '').trim().slice(0, 500),
+      refs: page.character?.refs ?? [], // pictures come and go through the endpoints below
+    };
     await this.pages.update(page.id, fields);
+    return this.view(await this.pages.findOneByOrFail({ id }));
+  }
+
+  /** Reference picture of the page's character (up to 4), normalised to a JPEG of at most 1536 px. */
+  @HttpPost('pages/:id/character/refs')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 },
+    fileFilter: (_req, f, cb) => cb(/^image\/(jpeg|png|webp)$/.test(f.mimetype) ? null : new BadRequestException('Нужен JPEG/PNG/WebP'), /^image\/(jpeg|png|webp)$/.test(f.mimetype)),
+  }))
+  async addRef(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
+    const page = await this.owned(user, id);
+    if (!file) throw new BadRequestException('Файл не получен');
+    const character: PageCharacter = page.character ?? { enabled: true, description: '', refs: [] };
+    if (character.refs.length >= 4) throw new BadRequestException('Не больше 4 картинок персонажа');
+    const name = randomName('jpg');
+    await sharp(file.buffer).rotate().resize(1536, 1536, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 92 }).toFile(join(config.mediaDir, name));
+    character.refs = [...character.refs, name];
+    await this.pages.update(page.id, { character });
+    return this.view(await this.pages.findOneByOrFail({ id }));
+  }
+
+  @Delete('pages/:id/character/refs/:file')
+  async removeRef(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @Param('file') file: string) {
+    const page = await this.owned(user, id);
+    if (!page.character?.refs.includes(file)) throw new NotFoundException();
+    await this.pages.update(page.id, { character: { ...page.character, refs: page.character.refs.filter((f) => f !== file) } });
+    await rm(join(config.mediaDir, file), { force: true });
     return this.view(await this.pages.findOneByOrFail({ id }));
   }
 
@@ -181,6 +217,7 @@ export class PagesController {
     const unpublished = await this.postRepo.find({ where: { pageId: In(ids), status: Not(In(['published', 'publishing'])) } });
     for (const p of unpublished) await this.posts.reject(p.id); // removes media files
     await this.pages.delete(ids);
+    for (const f of pages.flatMap((p) => p.character?.refs ?? [])) await rm(join(config.mediaDir, f), { force: true });
   }
 
   @HttpPost('pages/:id/generate')
@@ -256,15 +293,17 @@ export class PagesController {
 
   private async view(p: Page) {
     const acc = await this.accounts.findOneBy({ id: p.igAccountId });
-    const [queued, waiting, next, stats] = await Promise.all([
+    const [queued, waiting, generating, next, stats] = await Promise.all([
       this.postRepo.countBy({ pageId: p.id, status: 'approved' }),
       this.postRepo.countBy({ pageId: p.id, status: 'awaiting_approval' }),
+      this.postRepo.countBy({ pageId: p.id, status: 'generating' }),
       this.postRepo.findOne({ where: { pageId: p.id, status: 'approved', scheduledFor: Not(IsNull()) }, order: { scheduledFor: 'ASC' }, select: ['id', 'scheduledFor', 'kind'] }),
       this.pageStats.find({ where: { pageId: p.id }, order: { day: 'DESC' }, take: 8 }),
     ]);
     return {
       ...p, account: acc ? { id: acc.id, username: acc.username } : null,
-      queued, waiting, nextAt: next?.scheduledFor ?? null,
+      queued, waiting, generating, nextAt: next?.scheduledFor ?? null,
+      character: p.character && { ...p.character, refs: p.character.refs.map((f) => ({ file: f, url: mediaUrl(f) })) },
       followers: stats[0]?.followers ?? null,
       growth7d: stats.length > 1 ? stats[0].followers - stats[stats.length - 1].followers : null,
     };

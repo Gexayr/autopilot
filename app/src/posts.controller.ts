@@ -14,7 +14,7 @@ import { PostsService } from './posts.service';
 import { bt } from './bot.i18n';
 import { formatSlot } from './slots';
 
-const STATUSES: PostStatus[] = ['draft', 'awaiting_approval', 'approved', 'publishing', 'published', 'failed', 'rejected'];
+const STATUSES: PostStatus[] = ['draft', 'generating', 'awaiting_approval', 'approved', 'publishing', 'published', 'failed', 'rejected'];
 const MIME: Record<string, { kind: Post['kind']; ext: string }> = {
   'image/jpeg': { kind: 'IMAGE', ext: 'jpg' }, 'image/png': { kind: 'IMAGE', ext: 'png' }, 'image/webp': { kind: 'IMAGE', ext: 'webp' },
   'video/mp4': { kind: 'VIDEO', ext: 'mp4' }, 'video/quicktime': { kind: 'VIDEO', ext: 'mov' },

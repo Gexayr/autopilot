@@ -32,6 +32,15 @@ export const config = {
     bootstrapToken: env('BOOTSTRAP_IG_TOKEN'),
   },
   pexelsKey: env('PEXELS_API_KEY'),
+  // AI media (generator container): Alibaba Model Studio (Qwen image, Wan video) and PixVerse CLI accounts
+  dashscope: { apiKey: env('DASHSCOPE_API_KEY'), baseUrl: env('DASHSCOPE_BASE_URL', 'https://dashscope-intl.aliyuncs.com/api/v1').replace(/\/$/, '') },
+  pixverse: {
+    dir: env('PIXVERSE_DIR', '/pixverse'), // one sub-folder (HOME) per logged-in account: acc1, acc2, …
+    accounts: Number(env('PIXVERSE_ACCOUNTS', '0')),
+    videoModel: env('PIXVERSE_VIDEO_MODEL', 'v6'),
+    videoQuality: env('PIXVERSE_VIDEO_QUALITY', '360p'),
+    imageModel: env('PIXVERSE_IMAGE_MODEL', 'gemini-3.1-flash-lite'),
+  },
 };
 
 export const mediaUrl = (file: string) => `${config.publicUrl}/media/${file}`;

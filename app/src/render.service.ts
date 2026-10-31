@@ -66,6 +66,64 @@ export class RenderService {
     return new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render().asPng();
   }
 
+  /** Transparent layer with the quote over a dark fade at the bottom, to put on top of AI media. */
+  private async overlay(quote: string, style: PageStyle, theme: string, width: number, height: number, bottom: number): Promise<Buffer> {
+    const t = THEMES[theme] ?? THEMES.midnight;
+    const family = style.font === 'sans' ? 'Sans, Armenian' : 'Serif, ArmenianSerif';
+    const size = quote.length < 70 ? 64 : quote.length < 120 ? 54 : 46;
+    const tree = h('div', { width, height, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }, [
+      h('div', {
+        display: 'flex', flexDirection: 'column', padding: `220px 84px ${bottom}px`, color: '#ffffff', fontFamily: family,
+        backgroundImage: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.82) 100%)',
+      }, [
+        h('div', { fontSize: size, lineHeight: 1.28, display: 'flex', flexWrap: 'wrap', textShadow: '0 2px 14px rgba(0,0,0,0.65)' }, quote),
+        h('div', { display: 'flex', alignItems: 'center', marginTop: 44 }, [
+          h('div', { width: 80, height: 5, backgroundColor: t.accent, marginRight: 24, display: 'flex' }),
+          h('div', { fontFamily: 'Sans, Armenian', fontWeight: 400, fontSize: 32, opacity: 0.85, display: 'flex' }, style.signature ?? ''),
+        ]),
+      ]),
+    ]);
+    const svg = await satori(tree as any, { width, height, fonts: loadFonts() });
+    return new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render().asPng();
+  }
+
+  /** AI picture (any size) cropped to 1080×1350 with the quote on top. */
+  async overlayImage(aiImage: string, quote: string, style: PageStyle, theme: string): Promise<string> {
+    const file = randomName('jpg');
+    const layer = await this.overlay(quote, style, theme, 1080, 1350, 96);
+    await sharp(join(config.mediaDir, aiImage)).resize(1080, 1350, { fit: 'cover' })
+      .composite([{ input: layer }]).jpeg({ quality: 90, mozjpeg: true }).toFile(join(config.mediaDir, file));
+    return file;
+  }
+
+  /**
+   * AI clip cropped to 1080×1920 Reels with the quote fading in. The text sits above the bottom ~300 px,
+   * where Instagram draws its caption and buttons. A silent track is added: some players reject video-only Reels.
+   */
+  async overlayVideo(aiVideo: string, quote: string, style: PageStyle, theme: string): Promise<string> {
+    const file = randomName('mp4');
+    const layer = join(config.mediaDir, `.${file}.png`);
+    await writeFile(layer, await this.overlay(quote, style, theme, 1080, 1920, 330));
+    try {
+      await run('ffmpeg', [
+        '-y', '-loglevel', 'error',
+        '-i', join(config.mediaDir, aiVideo),
+        '-loop', '1', '-i', layer,
+        '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
+        '-filter_complex',
+        '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1[bg];' +
+        '[1:v]format=rgba,fade=t=in:st=0.3:d=0.7:alpha=1[ov];[bg][ov]overlay=0:0:shortest=1,format=yuv420p[v]',
+        '-map', '[v]', '-map', '2:a', '-shortest',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-profile:v', 'high',
+        '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart',
+        join(config.mediaDir, file),
+      ], { timeout: 300_000 });
+    } finally {
+      await rm(layer, { force: true });
+    }
+    return file;
+  }
+
   /** 1080×1350 (4:5) JPEG: always within Instagram's allowed aspect ratios. */
   async quoteImage(quote: string, style: PageStyle, theme: string): Promise<string> {
     const file = randomName('jpg');

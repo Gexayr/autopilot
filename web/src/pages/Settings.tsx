@@ -1,8 +1,8 @@
 import { Alert, Anchor, Avatar, Badge, Box, Button, Card, Group, Loader, NumberInput, Stack, Table, Text, Title } from '@mantine/core';
-import { IconBrandGoogle, IconBrandInstagram, IconBrandTelegram, IconCheck, IconChevronRight, IconLink, IconLogout, IconX } from '@tabler/icons-react';
+import { IconBrandGoogle, IconBrandInstagram, IconBrandTelegram, IconCheck, IconChevronRight, IconKey, IconLink, IconLogout, IconSparkles, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { AccessRequest, Account, AdminUser, api } from '../api';
+import { AccessRequest, Account, AdminUser, api, GeneratorStatus } from '../api';
 import { loadGoogle, telegramLogin, useAuth } from '../auth';
 import { useAction, useLoad } from '../hooks';
 import { LangSegmented } from '../components/LangSwitch';
@@ -77,6 +77,7 @@ export default function Settings() {
 
       {me!.role === 'admin' && <AdminAccessRequests />}
       {me!.role === 'admin' && <AdminUsers />}
+      {me!.role === 'admin' && <AdminGenerator />}
       {!inTelegram() && <Button variant="default" color="red" w="fit-content" leftSection={<IconLogout size={16} />} onClick={logout}>{t('common.logout')}</Button>}
     </Stack>
   );
@@ -178,6 +179,49 @@ function InstagramCard() {
           {t('settings.manage')}
         </Button>
       </Group>
+    </Card>
+  );
+}
+
+/** AI generator health for the admin: Alibaba key, PixVerse logins (they expire every ~30 days), last day's jobs. */
+function AdminGenerator() {
+  const st = useLoad(() => api<GeneratorStatus>('admin/generator'), [], 30_000);
+  const { busy, run } = useAction();
+  const login = (acc: string) => run(`login${acc}`, () => api(`admin/generator/pixverse/${acc}/login`, { body: {} }), t('gen.loginSent'));
+  const d = st.data;
+  return (
+    <Card withBorder>
+      <Group gap="xs" mb="sm"><IconSparkles size={20} /><Text fw={600}>{t('gen.title')}</Text></Group>
+      {!d ? <Loader size="sm" /> : (
+        <Stack gap="sm">
+          <Text size="sm">{t('gen.jobs', { done: d.jobs.done, failed: d.jobs.failed, queued: d.jobs.queued + d.jobs.running })}</Text>
+          <Group justify="space-between">
+            <Text size="sm">Alibaba (Qwen, Wan)</Text>
+            <Badge color={d.dashscope ? 'green' : 'gray'} variant="light">{t(d.dashscope ? 'gen.on' : 'gen.off')}</Badge>
+          </Group>
+          {d.accounts.map((a) => (
+            <Group key={a.acc} justify="space-between" wrap="nowrap">
+              <Text size="sm">PixVerse {a.acc}</Text>
+              <Group gap="xs" wrap="nowrap">
+                <Badge color={a.loggedIn ? 'green' : a.loggedIn === false ? 'red' : 'gray'} variant="light">
+                  {t(a.loggedIn ? 'gen.loggedIn' : a.loggedIn === false ? 'gen.notLoggedIn' : 'gen.unknown')}
+                </Badge>
+                <Button size="xs" variant={a.loggedIn ? 'subtle' : 'light'} leftSection={<IconKey size={14} />} loading={busy === `login${a.acc}`} onClick={() => login(a.acc)}>
+                  {t('gen.login')}
+                </Button>
+              </Group>
+            </Group>
+          ))}
+          {d.providers.length > 0 && (
+            <Box>
+              <Text size="xs" c="dimmed" mb={4}>{t('gen.providers')}</Text>
+              {d.providers.map((p) => (
+                <Text key={p.provider} size="xs">{p.provider}: <b>{p.ok}</b> ✓{p.errors > 0 && <> · <Text span c="red" size="xs">{p.errors} ✗</Text></>}</Text>
+              ))}
+            </Box>
+          )}
+        </Stack>
+      )}
     </Card>
   );
 }

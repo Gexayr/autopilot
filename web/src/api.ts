@@ -3,18 +3,20 @@ import { lang, t } from './i18n';
 
 export interface Me { id: number; name: string; avatarUrl: string | null; email: string | null; telegram: boolean; role: 'admin' | 'user'; status: 'active' | 'pending' | 'blocked'; maxPages: number; language: 'ru' | 'en' | 'hy' | null }
 export interface PublicConfig { botUsername: string | null; googleClientId: string | null; instagramReady: boolean }
-export interface PageStyle { theme?: string; font?: 'serif' | 'sans'; signature?: string }
+export interface PageStyle { theme?: string; font?: 'serif' | 'sans'; signature?: string; media?: 'card' | 'ai' }
+export interface PageCharacter { enabled: boolean; description: string; refs: { file: string; url: string }[] }
 export interface Page {
   id: number; slug: string; title: string; igAccountId: number; niche: string; language: string; style: PageStyle;
   reelsRatio: number; timezone: string; slots: string[]; bufferDays: number; active: boolean; aiEnabled: boolean; autoApprove: boolean;
-  account: { id: number; username: string } | null; queued: number; waiting: number; nextAt: string | null;
+  account: { id: number; username: string } | null; queued: number; waiting: number; generating: number; nextAt: string | null;
+  character: PageCharacter | null;
   followers: number | null; growth7d: number | null;
 }
 export interface Account {
   id: number; username: string; tokenExpiresAt: string | null; lastError: string | null; followers: number | null;
   mediaCount: number | null; avatarUrl: string | null; pages: { id: number; title: string }[]; queued: number;
 }
-export type PostStatus = 'draft' | 'awaiting_approval' | 'approved' | 'publishing' | 'published' | 'failed' | 'rejected';
+export type PostStatus = 'draft' | 'generating' | 'awaiting_approval' | 'approved' | 'publishing' | 'published' | 'failed' | 'rejected';
 export interface Post {
   id: number; pageId: number; kind: 'IMAGE' | 'VIDEO'; source: 'ai' | 'upload'; status: PostStatus; quote: string | null; caption: string;
   mediaUrl: string | null; scheduledFor: string | null; publishedAt: string | null; permalink: string | null; error: string | null;
@@ -28,6 +30,12 @@ export interface Stats {
   top: { id: number; pageId: number; kind: 'IMAGE' | 'VIDEO'; quote: string | null; caption: string; permalink: string | null; publishedAt: string; stats: Record<string, number> }[];
 }
 export interface AdminUser extends Me { createdAt: string; pages: number }
+export interface GeneratorStatus {
+  dashscope: boolean;
+  accounts: { acc: string; loggedIn: boolean | null; checkedAt: string | null }[];
+  jobs: { queued: number; running: number; done: number; failed: number };
+  providers: { provider: string; ok: number; errors: number }[];
+}
 export interface AccessRequest { id: number; userId: number; username: string; status: 'requested' | 'invited' | 'rejected' | 'connected'; createdAt: string; updatedAt: string; userName?: string }
 
 const TOKEN_KEY = 'autopilot.token';

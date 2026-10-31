@@ -138,11 +138,17 @@ export function StyleFields({ v, set }: { v: PageDraft; set: Set }) {
             value={v.style.font ?? 'serif'} onChange={(f) => setStyle({ font: f as 'serif' | 'sans' })} />
         </div>
         <TextInput label={t('form.signature')} placeholder={t('form.signaturePh')} maxLength={40} value={v.style.signature ?? ''} onChange={(e) => setStyle({ signature: e.currentTarget.value })} />
+        <div>
+          <Text size="sm" fw={500} mb={4}>{t('form.media')}</Text>
+          <SegmentedControl fullWidth value={v.style.media ?? 'card'} onChange={(m) => setStyle({ media: m as 'card' | 'ai' })}
+            data={[{ value: 'card', label: t('form.mediaCard') }, { value: 'ai', label: `✨ ${t('form.mediaAi')}` }]} />
+          <Text size="xs" c="dimmed" mt={4}>{t(v.style.media === 'ai' ? 'form.mediaAiHint' : 'form.mediaCardHint')}</Text>
+        </div>
       </Stack>
       <Box pos="relative" maw={320} mx="auto" w="100%">
         <Box className="media-box" style={{ aspectRatio: '4 / 5' }}>{preview && <Image src={preview} alt={t('form.example')} />}</Box>
         {loading && <Loader size="sm" pos="absolute" top={10} right={10} />}
-        <Text size="xs" c="dimmed" ta="center" mt={4}>{t('form.example')}</Text>
+        <Text size="xs" c="dimmed" ta="center" mt={4}>{t(v.style.media === 'ai' ? 'form.exampleAi' : 'form.example')}</Text>
       </Box>
     </SimpleGrid>
   );

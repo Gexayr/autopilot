@@ -6,6 +6,8 @@ export interface GeneratedPost {
   quote: string;
   caption: string;
   hashtags: string[];
+  scene: string; // English prompt for an AI image that illustrates the quote
+  motion: string; // English: what moves and how the camera moves in a 5-second clip
 }
 
 const LANGS: Record<string, string> = { ru: 'Russian', en: 'English', hy: 'Armenian' };
@@ -32,6 +34,11 @@ export class GeminiService {
       `- "quote": the text that goes ON the image: one strong, original thought, max 160 characters, no hashtags, no emoji, no quotation marks around it.`,
       `- "caption": the Instagram caption under the post: 2-4 short sentences that expand the thought and end with a question or call to action. Max 600 characters. Emoji allowed sparingly.`,
       `- "hashtags": 8-15 relevant hashtags without the # sign, mixing popular and niche ones, in ${lang} and English.`,
+      `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
+      `- "motion": in English, one sentence for a 5-second video made from that image: what moves and how the camera moves (e.g. slow push-in, gentle pan).`,
+      page.character?.enabled && page.character.description
+        ? `The page has a recurring character that must be the main subject of the scene, doing something that fits the thought: ${page.character.description}`
+        : '',
       `Never use em dashes (—) or en dashes (–) anywhere; use commas, colons or periods instead.`,
       hint ? `Extra instruction from the editor: ${hint}` : '',
       recentQuotes.length ? `Do NOT repeat or paraphrase any of these recent quotes:\n${recentQuotes.map((q) => `- ${q}`).join('\n')}` : '',
@@ -84,8 +91,10 @@ export class GeminiService {
                 quote: { type: 'STRING' },
                 caption: { type: 'STRING' },
                 hashtags: { type: 'ARRAY', items: { type: 'STRING' } },
+                scene: { type: 'STRING' },
+                motion: { type: 'STRING' },
               },
-              required: ['quote', 'caption', 'hashtags'],
+              required: ['quote', 'caption', 'hashtags', 'scene', 'motion'],
             },
           },
         }),

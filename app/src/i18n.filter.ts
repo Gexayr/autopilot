@@ -39,6 +39,8 @@ const MESSAGES: [RegExp, string, string][] = [
   [/^Опубликованный пост удаляется в самом Instagram$/, 'A published post can only be deleted in Instagram itself', 'Հրապարակված գրառումը ջնջվում է հենց Instagram-ում'],
   [/^Нужен JPEG\/PNG\/WebP или MP4\/MOV$/, 'JPEG/PNG/WebP or MP4/MOV only', 'Անհրաժեշտ է JPEG/PNG/WebP կամ MP4/MOV'],
   [/^Файл не получен$/, 'No file received', 'Ֆայլը չի ստացվել'],
+  [/^Нужен JPEG\/PNG\/WebP$/, 'JPEG, PNG or WebP only', 'Անհրաժեշտ է JPEG, PNG կամ WebP'],
+  [/^Не больше 4 картинок персонажа$/, 'At most 4 character pictures', 'Կերպարի առավելագույնը 4 նկար'],
   [/^Выберите контент$/, 'Choose the content', 'Ընտրեք թեմա'],
   [/^Вы вошли в @(\S+), а для вас одобрены? (.+)\. Выйдите из Instagram и войдите в нужный аккаунт\.$/,
     'You logged in to @$1, but approved for you: $2. Log out of Instagram and log in to one of these accounts.',
