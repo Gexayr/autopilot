@@ -38,6 +38,11 @@ export function sceneRules(v?: PageCharacter | null, colors?: string[]): string[
   ].filter(Boolean);
 }
 
+const PEOPLE = /\b(man|men|woman|women|person|persons|people|human|humans|guy|girl|girls|boy|boys|child|children|kid|kids|baby|teen|teenager|crowd|figure|silhouette|traveler|traveller|hiker|climber|runner|athlete|worker|student|family|couple|friends|someone|gentleman|lady|businessman|businesswoman|mother|father|parent|grandfather|grandmother|soldier|knight|warrior|king|queen|he|she|his|her|him)\b/i;
+
+/** Does Gemini's scene description have people in it? */
+export const hasPeople = (scene: string) => PEOPLE.test(scene);
+
 /** Prompt for the image model. */
 export function imagePrompt(v: PageCharacter | null | undefined, scene: string, withRefs: boolean, colors?: string[]): string {
   return [
@@ -48,7 +53,8 @@ export function imagePrompt(v: PageCharacter | null | undefined, scene: string, 
     v?.enabled && v.description ? `Character: ${v.description}.` : '',
     v?.world?.trim() ? `World: ${v.world.trim()}` : '',
     `Scene: ${scene}`,
-    v?.people?.trim() ? `Do not add people the scene does not mention. If people appear, they are ${v.people.trim()}.` : '',
+    // appearance only when the scene has people in it (a landscape stays a landscape)
+    v?.people?.trim() && hasPeople(scene) ? `People in this image: ${v.people.trim()}.` : '',
     `Style: ${styleText(v)}. No readable text, letters, captions, logos or watermarks anywhere in the image.`,
   ].filter(Boolean).join('\n');
 }
