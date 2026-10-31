@@ -101,7 +101,36 @@ export class GeminiService {
         }
       }
     }
+    // Gemini's free daily quota runs out too: Qwen on the Alibaba key (its own free quota) is the last resort
+    if (config.dashscope.apiKey) {
+      try {
+        return await this.requestQwen(prompt, schema);
+      } catch (e) {
+        this.log.warn(`qwen: ${(e as Error).message}`);
+      }
+    }
     throw new GeminiError('Gemini busy', true, last);
+  }
+
+  /** OpenAI-compatible chat on Alibaba Model Studio; the JSON shape is spelled out in the prompt. */
+  private async requestQwen(prompt: string, schema: any): Promise<string> {
+    const keys = Object.entries(schema.properties ?? {}).map(([k, v]: [string, any]) => `"${k}": ${v.type === 'ARRAY' ? 'array of strings' : 'string'}`);
+    const res = await fetch(`${config.dashscope.baseUrl.replace(/\/api\/v1$/, '')}/compatible-mode/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${config.dashscope.apiKey}` },
+      body: JSON.stringify({
+        model: config.qwenTextModel,
+        messages: [{ role: 'user', content: `${prompt}\n\nAnswer with one JSON object only, with exactly these keys: { ${keys.join(', ')} }.` }],
+        response_format: { type: 'json_object' },
+        temperature: 1,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    const json: any = await res.json();
+    const text = json.choices?.[0]?.message?.content;
+    if (!res.ok || !text) throw new Error(json.error?.message ?? res.statusText);
+    this.log.log(`answered by ${config.qwenTextModel}`);
+    return text as string;
   }
 
   private async request(model: string, prompt: string, schema: object): Promise<string> {
