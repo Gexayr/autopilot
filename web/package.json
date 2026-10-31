@@ -1,0 +1,33 @@
+{
+  "name": "autopilot-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build"
+  },
+  "dependencies": {
+    "@mantine/charts": "7.17.8",
+    "@mantine/core": "7.17.8",
+    "@mantine/dates": "7.17.8",
+    "@mantine/dropzone": "7.17.8",
+    "@mantine/hooks": "7.17.8",
+    "@mantine/notifications": "7.17.8",
+    "@tabler/icons-react": "3.50.0",
+    "dayjs": "1.11.23",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.6",
+    "recharts": "2.15.4"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.7.0",
+    "postcss": "8.5.6",
+    "postcss-preset-mantine": "1.18.0",
+    "typescript": "5.9.3",
+    "vite": "5.4.21"
+  }
+}

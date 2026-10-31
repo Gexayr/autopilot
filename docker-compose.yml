@@ -1,0 +1,46 @@
+# Autopilot: AI content engine for Instagram pages (stage 0, see README.md).
+# Deploy: docker-compose up -d --build
+name: autopilot
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: autopilot
+      POSTGRES_USER: autopilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autopilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: db
+      DB_USER: autopilot
+      DB_NAME: autopilot
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      MEDIA_DIR: /media
+      PORT: 3000
+    volumes:
+      # served by nginx at ${PUBLIC_URL}/media/ — Instagram downloads posts from there
+      - /var/www/autopilot-media:/media
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3010:3000"
+    mem_limit: 768m
+
+volumes:
+  db_data:
