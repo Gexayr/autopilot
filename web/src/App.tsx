@@ -56,7 +56,9 @@ function Shell() {
     >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
-          <Group gap={8}><Text fz={22}>🚀</Text><Title order={4}>{t('app.name')}</Title></Group>
+          <Group gap={8} component={RouterLink} to="/" style={{ textDecoration: 'none', color: 'inherit' }} aria-label={t('nav.overview')}>
+            <Text fz={22}>🚀</Text><Title order={4}>{t('app.name')}</Title>
+          </Group>
           <Group gap={6}>
             <LangMenu />
             {!inTelegram() && (
