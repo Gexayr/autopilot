@@ -1,6 +1,6 @@
 import { Avatar, Button, Card, Group, Loader, Radio, Stack, Stepper, Text, Title } from '@mantine/core';
 import { useEffect, useState } from 'react';
-import { IconArrowLeft, IconArrowRight, IconSparkles } from '@tabler/icons-react';
+import { IconArrowLeft, IconArrowRight, IconSparkles, IconDeviceFloppy } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { Account, api, Page } from '../api';
 import { emptyDraft, PageDraft, ScheduleFields, StyleFields, TopicFields } from '../components/PageForm';
@@ -35,6 +35,11 @@ export default function PageWizard() {
     const page = await api<Page>('pages', { body: { ...v, igAccountId: accountId } });
     nav(`/approvals?page=${page.id}&new=1`);
   }, t('wizard.created'));
+  // paused and without posts: the rest is filled in its settings, then it is switched on
+  const saveLater = () => run('later', async () => {
+    const page = await api<Page>('pages', { body: { ...v, igAccountId: accountId, active: false, generateNow: false } });
+    nav(`/pages/${page.id}`);
+  }, t('wizard.savedLater'));
 
   return (
     <Stack maw={760}>
@@ -71,12 +76,18 @@ export default function PageWizard() {
         <Stepper.Step label={t('wizard.step.schedule')}><Card withBorder mt="md"><ScheduleFields v={v} set={set} account={account?.username} others={(pages.data ?? []).filter((p) => p.igAccountId === accountId)} /></Card></Stepper.Step>
         <Stepper.Step label={t('wizard.step.style')}><Card withBorder mt="md"><StyleFields v={v} set={set} /></Card></Stepper.Step>
       </Stepper>
-      <Group justify="space-between">
-        <Button variant="default" leftSection={<IconArrowLeft size={16} />} onClick={() => (step ? setStep(step - 1) : nav(-1))}>{t('common.back')}</Button>
-        {step < 3
-          ? <Button rightSection={<IconArrowRight size={16} />} disabled={!canNext} onClick={() => setStep(step + 1)}>{t('common.next')}</Button>
-          : <Button leftSection={<IconSparkles size={16} />} loading={busy === 'create'} onClick={create}>{t('wizard.create')}</Button>}
-      </Group>
+      <Stack gap="xs" className="sticky-actions">
+        <Group justify="space-between" wrap="nowrap">
+          <Button variant="default" leftSection={<IconArrowLeft size={16} />} onClick={() => (step ? setStep(step - 1) : nav(-1))}>{t('common.back')}</Button>
+          {step < 3
+            ? <Button rightSection={<IconArrowRight size={16} />} disabled={!canNext} onClick={() => setStep(step + 1)}>{t('common.next')}</Button>
+            : <Button leftSection={<IconSparkles size={16} />} loading={busy === 'create'} onClick={create}>{t('wizard.create')}</Button>}
+        </Group>
+        {step >= 1 && (
+          <Button variant="subtle" size="xs" leftSection={<IconDeviceFloppy size={14} />} disabled={!accountId || !v.title.trim() || !v.niche.trim()}
+            loading={busy === 'later'} onClick={saveLater}>{t('wizard.saveLater')}</Button>
+        )}
+      </Stack>
     </Stack>
   );
 }

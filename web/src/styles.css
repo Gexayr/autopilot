@@ -17,3 +17,15 @@ body { -webkit-font-smoothing: antialiased; }
 .mantine-List-itemWrapper { display: inline; }
 /* Armenian words are long: smaller labels in the phone tab bar */
 html[lang='hy'] .bottom-nav a { font-size: 10px; }
+/* Phones: the browser's own bar (iOS Safari, Telegram) sits over the bottom of the page; keep the tab bar
+   and the page end above the home indicator */
+@media (max-width: 48em) {
+  .mantine-AppShell-footer { height: calc(60px + env(safe-area-inset-bottom)) !important; padding-bottom: env(safe-area-inset-bottom); }
+  .mantine-AppShell-main { padding-bottom: calc(60px + env(safe-area-inset-bottom) + 96px) !important; }
+  /* form actions stay visible above the tab bar */
+  .sticky-actions {
+    position: sticky; bottom: calc(60px + env(safe-area-inset-bottom)); z-index: 5;
+    margin-inline: calc(-1 * var(--mantine-spacing-md)); padding: 10px var(--mantine-spacing-md);
+    background: var(--mantine-color-body); border-top: 1px solid var(--mantine-color-default-border);
+  }
+}

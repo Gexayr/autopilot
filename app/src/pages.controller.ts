@@ -160,7 +160,8 @@ export class PagesController {
       ...fields, style: { signature: `@${acc.username}`, ...fields.style }, ownerId: user.id, igAccountId: acc.id, slug,
     }));
     // first posts right away, so there is something to look at
-    if (page.aiEnabled) void this.generateMany(page, 3);
+    // "save and continue later" creates it paused and without posts
+    if (page.aiEnabled && page.active && body.generateNow !== false) void this.generateMany(page, 3);
     return this.view(page);
   }
 

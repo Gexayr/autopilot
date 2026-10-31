@@ -63,7 +63,7 @@ export default function PageEdit() {
           </Tabs.Panel>
         </Card>
       </Tabs>
-      <Group justify="flex-end">
+      <Group justify="flex-end" className="sticky-actions">
         <Button variant="default" leftSection={<IconArrowLeft size={16} />} onClick={() => nav(-1)}>{t('common.back')}</Button>
         <Button leftSection={<IconCheck size={16} />} loading={busy === 'save'} onClick={save}>{t('common.save')}</Button>
       </Group>
