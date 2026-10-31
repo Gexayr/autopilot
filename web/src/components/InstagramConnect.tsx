@@ -35,7 +35,10 @@ function clearAttempt() {
  */
 function Checklist({ opened, onClose, onGo, account, busy }: { opened: boolean; onClose: () => void; onGo: () => void; account?: string; busy: boolean }) {
   const [done, setDone] = useState<Record<string, boolean>>({});
-  const tick = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setDone((d) => ({ ...d, [k]: e.currentTarget.checked }));
+  const tick = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.currentTarget.checked; // read now: currentTarget is gone by the time the updater runs
+    setDone((d) => ({ ...d, [k]: checked }));
+  };
   const all = done.invite && done.pro && done.login;
   return (
     <Modal opened={opened} onClose={onClose} title={<Text fw={600}>{t('connect.check.title')}</Text>} centered>
