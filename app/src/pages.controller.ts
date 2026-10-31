@@ -94,6 +94,7 @@ function characterFields(c: any, refs: string[]): PageCharacter {
     refsMode: c?.refsMode === 'style' ? 'style' : 'character',
     style: String(c?.style ?? '').trim().slice(0, 300),
     world: String(c?.world ?? '').trim().slice(0, 2000),
+    people: String(c?.people ?? '').trim().slice(0, 200),
   };
 }
 

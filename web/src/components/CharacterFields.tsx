@@ -8,7 +8,7 @@ import { emptyWorld, WorldDraft, WorldEditor } from './WorldEditor';
 
 const fromPage = (p: Page): WorldDraft => {
   const c = p.character;
-  return c ? { style: c.style || 'photo', world: c.world ?? '', enabled: c.enabled, description: c.description, refsMode: c.refsMode ?? 'character' } : emptyWorld();
+  return c ? { style: c.style || 'photo', world: c.world ?? '', enabled: c.enabled, description: c.description, refsMode: c.refsMode ?? 'character', people: c.people ?? '' } : emptyWorld();
 };
 
 /** "World & style" tab of the page settings: pictures upload at once, the rest is saved with its own button. */

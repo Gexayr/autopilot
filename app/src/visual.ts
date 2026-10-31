@@ -31,6 +31,7 @@ export function sceneRules(v?: PageCharacter | null, colors?: string[]): string[
   return [
     colors?.length ? `Brand colors that must dominate the palette of every scene: ${colors.join(', ')}.` : '',
     v?.world?.trim() ? `Every scene takes place in this world (keep its look, places and mood): ${v.world.trim()}` : '',
+    v?.people?.trim() ? `Any people in the scene: ${v.people.trim()}. Say so explicitly in the scene description.` : '',
     `Visual style of the scene: ${styleText(v)}.`,
     v?.enabled && v.description ? `A recurring character must be the main subject, doing something that fits the post: ${v.description}` : '',
   ].filter(Boolean);
@@ -46,6 +47,7 @@ export function imagePrompt(v: PageCharacter | null | undefined, scene: string, 
     v?.enabled && v.description ? `Character: ${v.description}.` : '',
     v?.world?.trim() ? `World: ${v.world.trim()}` : '',
     `Scene: ${scene}`,
+    v?.people?.trim() ? `All people shown: ${v.people.trim()}.` : '',
     `Style: ${styleText(v)}. No readable text, letters, captions, logos or watermarks anywhere in the image.`,
   ].filter(Boolean).join('\n');
 }
