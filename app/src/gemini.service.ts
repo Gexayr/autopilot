@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { config } from './config';
 import { Page } from './entities';
 
@@ -10,11 +10,20 @@ export interface GeneratedPost {
 
 const LANGS: Record<string, string> = { ru: 'Russian', en: 'English', hy: 'Armenian' };
 
+const BUSY = new Set([429, 500, 502, 503, 504]);
+
+/** `busy` = overloaded or rate-limited: worth retrying later. */
+export class GeminiError extends Error {
+  constructor(message: string, readonly busy: boolean, readonly cause?: unknown) { super(message); }
+}
+
 /** The owner doesn't want long dashes anywhere, so strip any the model still produces. */
 export const noDashes = (s: string) => s.replace(/\s+[—–]\s+/g, ', ').replace(/[—–]/g, '-');
 
 @Injectable()
 export class GeminiService {
+  private readonly log = new Logger(GeminiService.name);
+
   async generate(page: Page, recentQuotes: string[], hint?: string, language = page.language): Promise<GeneratedPost> {
     const lang = LANGS[language] ?? language;
     const prompt = [
@@ -28,8 +37,39 @@ export class GeminiService {
       recentQuotes.length ? `Do NOT repeat or paraphrase any of these recent quotes:\n${recentQuotes.map((q) => `- ${q}`).join('\n')}` : '',
     ].filter(Boolean).join('\n');
 
+    const text = await this.withRetries(prompt);
+    const out = JSON.parse(text) as GeneratedPost;
+    out.quote = noDashes(out.quote.trim().replace(/^["«“]+|["»”]+$/g, ''));
+    out.caption = noDashes(out.caption);
+    out.hashtags = out.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 25);
+    return out;
+  }
+
+  /**
+   * Gemini's free tier often answers 503 "high demand" for a minute or two: retry, then fall back to lighter models
+   * (config.gemini.fallbacks) instead of failing the post.
+   */
+  private async withRetries(prompt: string): Promise<string> {
+    const models = [...new Set([config.gemini.model, ...config.gemini.fallbacks])];
+    let last: unknown;
+    for (const model of models) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          return await this.request(model, prompt);
+        } catch (e) {
+          last = e;
+          if (!(e instanceof GeminiError && e.busy) && (e as Error).name !== 'TimeoutError') throw e;
+          this.log.warn(`${model} attempt ${attempt + 1}: ${(e as Error).message}`);
+          if (attempt === 0) await new Promise((r) => setTimeout(r, 4000));
+        }
+      }
+    }
+    throw new GeminiError('Gemini busy', true, last);
+  }
+
+  private async request(model: string, prompt: string): Promise<string> {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': config.gemini.apiKey },
@@ -49,17 +89,14 @@ export class GeminiService {
             },
           },
         }),
-        signal: AbortSignal.timeout(90_000),
+        signal: AbortSignal.timeout(60_000),
       },
     );
     const json: any = await res.json();
-    if (!res.ok) throw new Error(`Gemini: ${json.error?.message ?? res.statusText}`);
+    if (!res.ok) throw new GeminiError(`Gemini: ${json.error?.message ?? res.statusText}`, BUSY.has(res.status));
     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error(`Gemini returned no text (${json.candidates?.[0]?.finishReason ?? 'unknown'})`);
-    const out = JSON.parse(text) as GeneratedPost;
-    out.quote = noDashes(out.quote.trim().replace(/^["«“]+|["»”]+$/g, ''));
-    out.caption = noDashes(out.caption);
-    out.hashtags = out.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 25);
-    return out;
+    if (!text) throw new GeminiError(`Gemini returned no text (${json.candidates?.[0]?.finishReason ?? 'unknown'})`, true);
+    return text as string;
   }
+
 }

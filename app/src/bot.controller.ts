@@ -110,7 +110,7 @@ export class BotController {
       });
       case '/gen': return withPage(async (p, rest) => {
         await reply(bt(lang, 'generating'));
-        await this.posts.generate(p, rest.join(' ') || undefined);
+        await this.posts.generateForUser(p, rest.join(' ') || undefined);
       });
       case '/pause':
       case '/resume': return withPage(async (p) => {

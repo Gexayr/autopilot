@@ -180,7 +180,7 @@ export class PagesController {
   async generate(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @Body('hint') hint?: string, @Body('language') language?: string) {
     if (language !== undefined && !LANGUAGES.includes(language)) throw new BadRequestException('language: ru, en или hy');
     const page = await this.owned(user, id);
-    void this.posts.generate(page, hint ? String(hint).slice(0, 300) : undefined, language).catch((e) => this.log.warn(`generate: ${e.message}`));
+    void this.posts.generateForUser(page, hint ? String(hint).slice(0, 300) : undefined, language);
     return { ok: true };
   }
 

@@ -21,7 +21,9 @@ export const config = {
     adminChatId: Number(env('TG_ADMIN_CHAT_ID', '0')),
     webhookSecret: env('TG_WEBHOOK_SECRET'),
   },
-  gemini: { apiKey: env('GEMINI_API_KEY'), model: env('GEMINI_MODEL', 'gemini-2.5-flash') },
+  gemini: { apiKey: env('GEMINI_API_KEY'), model: env('GEMINI_MODEL', 'gemini-2.5-flash'),
+    // tried in order when the main model is overloaded
+    fallbacks: env('GEMINI_FALLBACK_MODELS', 'gemini-3.5-flash,gemini-3.5-flash-lite').split(',').map((s) => s.trim()).filter(Boolean) },
   instagram: {
     appId: env('IG_APP_ID'),
     metaAppId: env('META_APP_ID'), // Facebook app id (dashboard URL), for the "add tester" link

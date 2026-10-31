@@ -7,7 +7,7 @@ import { DateTime } from 'luxon';
 import { DataSource, In, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
 import { config, mediaUrl } from './config';
 import { Page, PageStat, Post, PostStatus, User } from './entities';
-import { GeminiService } from './gemini.service';
+import { GeminiError, GeminiService } from './gemini.service';
 import { InstagramService } from './instagram.service';
 import { pickTheme, RenderService } from './render.service';
 import { formatSlot, nextFreeSlot } from './slots';
@@ -75,6 +75,18 @@ export class PostsService {
   // ---------- generation ----------
 
   /** Generate one AI post for the page and send it for approval (or schedule it if the page auto-approves). */
+  /** A post the user asked for (bot /gen, website, "another version"): if it fails, tell them in Telegram. */
+  async generateForUser(page: Page, hint?: string, language?: string): Promise<Post | null> {
+    try {
+      return await this.generate(page, hint, language);
+    } catch (e) {
+      this.log.warn(`generate ${page.slug}: ${(e as Error).message}`);
+      const busy = e instanceof GeminiError && e.busy;
+      await this.notify(page, (l) => bt(l, busy ? 'aiBusy' : 'aiFailed', { m: (e as Error).message }));
+      return null;
+    }
+  }
+
   async generate(page: Page, hint?: string, language?: string): Promise<Post> {
     const lang = language && language !== page.language ? language : undefined;
     const recent = await this.posts.find({
@@ -181,7 +193,7 @@ export class PostsService {
   /** Throw the post away and make another one for the same page. */
   async regenerate(postId: number) {
     const post = await this.reject(postId);
-    return this.generate(await this.pages.findOneByOrFail({ id: post.pageId! }), undefined, post.render?.lang);
+    return this.generateForUser(await this.pages.findOneByOrFail({ id: post.pageId! }), undefined, post.render?.lang);
   }
 
   /** Move a queued post to another free time (any future minute; one post per page per time). */
