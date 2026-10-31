@@ -77,6 +77,18 @@ function styleFields(s: any): PageStyle {
   return style;
 }
 
+/** World & style settings from the form; reference pictures are managed by their own endpoints. */
+function characterFields(c: any, refs: string[]): PageCharacter {
+  return {
+    enabled: !!c?.enabled,
+    description: String(c?.description ?? '').trim().slice(0, 500),
+    refs,
+    refsMode: c?.refsMode === 'style' ? 'style' : 'character',
+    style: String(c?.style ?? '').trim().slice(0, 300),
+    world: String(c?.world ?? '').trim().slice(0, 2000),
+  };
+}
+
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'page';
 
 @Controller('api')
@@ -154,6 +166,7 @@ export class PagesController {
     const acc = await this.accounts.findOneBy({ id: Number(body.igAccountId), ownerId: user.id });
     if (!acc) throw new BadRequestException('Выберите подключённый аккаунт Instagram');
     const fields = pageFields(body, false);
+    if (body.character) fields.character = characterFields(body.character, []);
     let slug = slugify(acc.username);
     for (let i = 2; await this.pages.existsBy({ ownerId: user.id, slug }); i++) slug = `${slugify(acc.username)}-${i}`;
     const page = await this.pages.save(this.pages.create({
@@ -175,17 +188,8 @@ export class PagesController {
       if (!acc) throw new BadRequestException('Аккаунт не найден');
       fields.igAccountId = acc.id;
     }
-    if (body.character !== undefined) {
-      const c = body.character ?? {};
-      fields.character = {
-        enabled: !!c.enabled,
-        description: String(c.description ?? '').trim().slice(0, 500),
-        refs: page.character?.refs ?? [], // pictures come and go through the endpoints below
-        refsMode: c.refsMode === 'style' ? 'style' : 'character',
-        style: String(c.style ?? '').trim().slice(0, 300),
-        world: String(c.world ?? '').trim().slice(0, 2000),
-      };
-    }
+    // pictures come and go through the endpoints below
+    if (body.character !== undefined) fields.character = characterFields(body.character, page.character?.refs ?? []);
     await this.pages.update(page.id, fields);
     return this.view(await this.pages.findOneByOrFail({ id }));
   }
@@ -195,9 +199,20 @@ export class PagesController {
   @HttpCode(200)
   async expandWorld(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @Body('brief') brief: string, @Body('language') language?: string) {
     const page = await this.owned(user, id);
+    return this.world(brief, LANGUAGES.includes(language ?? '') ? language! : page.language);
+  }
+
+  /** The same for the new-content wizard, before the page exists. */
+  @HttpPost('world')
+  @HttpCode(200)
+  expandWorldDraft(@Body('brief') brief: string, @Body('language') language?: string) {
+    return this.world(brief, LANGUAGES.includes(language ?? '') ? language! : 'en');
+  }
+
+  private async world(brief: string, language: string) {
     const text = String(brief ?? '').trim();
     if (text.length < 3 || text.length > 2000) throw new BadRequestException('Опишите мир хотя бы парой слов');
-    return { world: await this.gemini.world(text, LANGUAGES.includes(language ?? '') ? language! : page.language) };
+    return { world: await this.gemini.world(text, language) };
   }
 
   /** Reference picture of the page's character (up to 4), normalised to a JPEG of at most 1536 px. */

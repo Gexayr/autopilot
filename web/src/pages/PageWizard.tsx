@@ -4,9 +4,10 @@ import { IconArrowLeft, IconArrowRight, IconSparkles, IconDeviceFloppy } from '@
 import { useNavigate } from 'react-router-dom';
 import { Account, api, Page } from '../api';
 import { emptyDraft, PageDraft, ScheduleFields, StyleFields, TopicFields } from '../components/PageForm';
+import { emptyWorld, WorldDraft, WorldEditor } from '../components/WorldEditor';
 import { useAction, useLoad } from '../hooks';
 import InstagramConnect from '../components/InstagramConnect';
-import { t } from '../i18n';
+import { lang, t } from '../i18n';
 
 export default function PageWizard() {
   const accounts = useLoad(() => api<Account[]>('accounts'));
@@ -15,8 +16,12 @@ export default function PageWizard() {
   const [accountId, setAccountId] = useState<number | null>(null);
   const [v, setV] = useState<PageDraft>(emptyDraft);
   const set = (patch: Partial<PageDraft>) => setV((x) => ({ ...x, ...patch }));
+  const [world, setWorld] = useState<WorldDraft>(emptyWorld);
+  // pictures picked before the page exists: uploaded right after it is created
+  const [refs, setRefs] = useState<{ key: string; url: string; file: File }[]>([]);
   const { busy, run } = useAction();
   const nav = useNavigate();
+  const LAST = 4;
 
   // preselect the newest account (e.g. right after connecting one)
   useEffect(() => {
@@ -29,15 +34,36 @@ export default function PageWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.id]);
 
-  const canNext = [!!accountId, !!v.title.trim() && !!v.niche.trim(), v.slots.length > 0, true][step];
+  const canNext = [!!accountId, !!v.title.trim() && !!v.niche.trim(), v.slots.length > 0, true, true][step];
+  const worldSet = !!world.world.trim() || world.enabled || refs.length > 0 || world.style !== 'photo';
+
+  /** Creates the page (+ its world), uploads the picked pictures, then asks for the first posts if wanted. */
+  const save = async (start: boolean) => {
+    const page = await api<Page>('pages', { body: {
+      ...v, igAccountId: accountId, ...(worldSet && { character: world }),
+      ...(start ? { generateNow: refs.length === 0 } : { active: false, generateNow: false }),
+    } });
+    for (const r of refs) {
+      const form = new FormData();
+      form.append('file', r.file);
+      await api(`pages/${page.id}/character/refs`, { form });
+    }
+    // with pictures the first posts start only now, so they already use them
+    if (start && refs.length) for (let i = 0; i < 3; i++) await api(`pages/${page.id}/generate`, { body: {} });
+    return page;
+  };
+  const expandWorld = () => run('world', async () => {
+    const r = await api<{ world: string }>('world', { body: { brief: world.world, language: lang() } });
+    setWorld((x) => ({ ...x, world: r.world }));
+  });
 
   const create = () => run('create', async () => {
-    const page = await api<Page>('pages', { body: { ...v, igAccountId: accountId } });
+    const page = await save(true);
     nav(`/approvals?page=${page.id}&new=1`);
   }, t('wizard.created'));
   // paused and without posts: the rest is filled in its settings, then it is switched on
   const saveLater = () => run('later', async () => {
-    const page = await api<Page>('pages', { body: { ...v, igAccountId: accountId, active: false, generateNow: false } });
+    const page = await save(false);
     nav(`/pages/${page.id}`);
   }, t('wizard.savedLater'));
 
@@ -75,11 +101,19 @@ export default function PageWizard() {
         <Stepper.Step label={t('wizard.step.topic')}><Card withBorder mt="md"><TopicFields v={v} set={set} /></Card></Stepper.Step>
         <Stepper.Step label={t('wizard.step.schedule')}><Card withBorder mt="md"><ScheduleFields v={v} set={set} account={account?.username} others={(pages.data ?? []).filter((p) => p.igAccountId === accountId)} /></Card></Stepper.Step>
         <Stepper.Step label={t('wizard.step.style')}><Card withBorder mt="md"><StyleFields v={v} set={set} /></Card></Stepper.Step>
+        <Stepper.Step label={t('wizard.step.world')}>
+          <Card withBorder mt="md">
+            {v.style.media !== 'ai' && <Text size="sm" c="dimmed" mb="sm">{t('wizard.worldCardMode')}</Text>}
+            <WorldEditor v={world} set={(patch) => setWorld((x) => ({ ...x, ...patch }))} busy={busy} onExpand={expandWorld}
+              refs={refs} onRemoveRef={(key) => setRefs((xs) => xs.filter((r) => r.key !== key))}
+              onAddRef={(file) => setRefs((xs) => [...xs, { key: `${file.name}-${Date.now()}`, url: URL.createObjectURL(file), file }])} />
+          </Card>
+        </Stepper.Step>
       </Stepper>
       <Stack gap="xs" className="sticky-actions">
         <Group justify="space-between" wrap="nowrap">
           <Button variant="default" leftSection={<IconArrowLeft size={16} />} onClick={() => (step ? setStep(step - 1) : nav(-1))}>{t('common.back')}</Button>
-          {step < 3
+          {step < LAST
             ? <Button rightSection={<IconArrowRight size={16} />} disabled={!canNext} onClick={() => setStep(step + 1)}>{t('common.next')}</Button>
             : <Button leftSection={<IconSparkles size={16} />} loading={busy === 'create'} onClick={create}>{t('wizard.create')}</Button>}
         </Group>
