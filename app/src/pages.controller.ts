@@ -12,6 +12,7 @@ import { AuthGuard, CurrentUser } from './auth.guard';
 import { config, mediaUrl } from './config';
 import { randomName, sign } from './crypto.util';
 import { IgAccount, Page, PageCharacter, PageStat, PageStyle, Post, User } from './entities';
+import { GeminiService } from './gemini.service';
 import { InstagramService } from './instagram.service';
 import { PostsService } from './posts.service';
 import { pickTheme, RenderService, THEMES } from './render.service';
@@ -86,6 +87,7 @@ export class PagesController {
     private readonly posts: PostsService,
     private readonly ig: InstagramService,
     private readonly render: RenderService,
+    private readonly gemini: GeminiService,
     @InjectRepository(Page) private readonly pages: Repository<Page>,
     @InjectRepository(IgAccount) private readonly accounts: Repository<IgAccount>,
     @InjectRepository(PageStat) private readonly pageStats: Repository<PageStat>,
@@ -167,13 +169,29 @@ export class PagesController {
       if (!acc) throw new BadRequestException('Аккаунт не найден');
       fields.igAccountId = acc.id;
     }
-    if (body.character !== undefined) fields.character = {
-      enabled: !!body.character?.enabled,
-      description: String(body.character?.description ?? '').trim().slice(0, 500),
-      refs: page.character?.refs ?? [], // pictures come and go through the endpoints below
-    };
+    if (body.character !== undefined) {
+      const c = body.character ?? {};
+      fields.character = {
+        enabled: !!c.enabled,
+        description: String(c.description ?? '').trim().slice(0, 500),
+        refs: page.character?.refs ?? [], // pictures come and go through the endpoints below
+        refsMode: c.refsMode === 'style' ? 'style' : 'character',
+        style: String(c.style ?? '').trim().slice(0, 300),
+        world: String(c.world ?? '').trim().slice(0, 2000),
+      };
+    }
     await this.pages.update(page.id, fields);
     return this.view(await this.pages.findOneByOrFail({ id }));
+  }
+
+  /** "It's a game about …" -> a detailed world description to edit and save (nothing is stored here). */
+  @HttpPost('pages/:id/world')
+  @HttpCode(200)
+  async expandWorld(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @Body('brief') brief: string, @Body('language') language?: string) {
+    const page = await this.owned(user, id);
+    const text = String(brief ?? '').trim();
+    if (text.length < 3 || text.length > 2000) throw new BadRequestException('Опишите мир хотя бы парой слов');
+    return { world: await this.gemini.world(text, LANGUAGES.includes(language ?? '') ? language! : page.language) };
   }
 
   /** Reference picture of the page's character (up to 4), normalised to a JPEG of at most 1536 px. */
@@ -185,8 +203,8 @@ export class PagesController {
   async addRef(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
     const page = await this.owned(user, id);
     if (!file) throw new BadRequestException('Файл не получен');
-    const character: PageCharacter = page.character ?? { enabled: true, description: '', refs: [] };
-    if (character.refs.length >= 4) throw new BadRequestException('Не больше 4 картинок персонажа');
+    const character: PageCharacter = page.character ?? { enabled: false, description: '', refs: [] };
+    if (character.refs.length >= 4) throw new BadRequestException('Не больше 4 картинок');
     const name = randomName('jpg');
     await sharp(file.buffer).rotate().resize(1536, 1536, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 92 }).toFile(join(config.mediaDir, name));
     character.refs = [...character.refs, name];

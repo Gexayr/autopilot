@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Group, Loader, Select, Stack, Tabs, Title } from '@mantine/core';
-import { IconArrowLeft, IconCalendarTime, IconCheck, IconMoodSmile, IconPalette, IconTextCaption, IconTrash } from '@tabler/icons-react';
+import { IconArrowLeft, IconCalendarTime, IconCheck, IconWorld, IconPalette, IconTextCaption, IconTrash } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Account, api, Page } from '../api';
@@ -43,7 +43,7 @@ export default function PageEdit() {
           <Tabs.Tab value="topic" leftSection={<IconTextCaption size={16} />}>{t('edit.tab.topic')}</Tabs.Tab>
           <Tabs.Tab value="schedule" leftSection={<IconCalendarTime size={16} />}>{t('edit.tab.schedule')}</Tabs.Tab>
           <Tabs.Tab value="style" leftSection={<IconPalette size={16} />}>{t('edit.tab.style')}</Tabs.Tab>
-          <Tabs.Tab value="character" leftSection={<IconMoodSmile size={16} />}>{t('edit.tab.character')}</Tabs.Tab>
+          <Tabs.Tab value="character" leftSection={<IconWorld size={16} />}>{t('edit.tab.character')}</Tabs.Tab>
           <Tabs.Tab value="danger" c="red" leftSection={<IconTrash size={16} />}>{t('edit.tab.danger')}</Tabs.Tab>
         </Tabs.List>
         <Card withBorder mt="md">

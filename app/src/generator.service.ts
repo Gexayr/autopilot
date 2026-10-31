@@ -13,6 +13,7 @@ import { randomName } from './crypto.util';
 import { Kv, MediaJob, Page, Post, User } from './entities';
 import { Aspect, DashScope, MediaError, PixVerse } from './media.providers';
 import { PostsService } from './posts.service';
+import { imagePrompt, refsInUse } from './visual';
 import { TelegramApi } from './telegram.api';
 
 const runFile = promisify(execFile);
@@ -122,14 +123,9 @@ export class GeneratorService {
 
   private async make(post: Post, page: Page, steps: Step[]) {
     const render = { ...post.render };
-    const refs = page.character?.enabled ? page.character.refs.map((f) => join(config.mediaDir, f)) : [];
+    const refs = refsInUse(page.character).map((f) => join(config.mediaDir, f));
     const aspect: Aspect = post.kind === 'VIDEO' ? '9:16' : '4:5';
-    const prompt = [
-      refs.length ? 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face.' : '',
-      page.character?.enabled && page.character.description ? `Character: ${page.character.description}.` : '',
-      `Scene: ${render.scene ?? post.quote}`,
-      'Photorealistic, cinematic light. No readable text, letters, captions, logos or watermarks anywhere in the image.',
-    ].filter(Boolean).join('\n');
+    const prompt = imagePrompt(page.character, render.scene ?? post.quote ?? '', refs.length > 0);
 
     if (!render.aiImage) {
       const img = await this.firstThatWorks('image', steps, [

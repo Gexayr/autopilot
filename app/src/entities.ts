@@ -20,11 +20,14 @@ export interface PageStyle {
   text?: boolean; // AI media: put the quote on top (default) or publish the pure picture / clip
 }
 
-/** A recurring character drawn into AI scenes from reference images (files in MEDIA_DIR). */
+/** World, picture style and an optional recurring character for AI scenes (column `character`, see visual.ts). */
 export interface PageCharacter {
-  enabled: boolean;
+  enabled: boolean; // draw the character
   description: string; // e.g. "Astro, a small white robot with a blue visor"
-  refs: string[];
+  refs: string[]; // reference pictures (files in MEDIA_DIR)
+  refsMode?: 'character' | 'style'; // the pictures show the character, or the world / art style to match
+  style?: string; // key of VISUAL_STYLES or the user's own words
+  world?: string; // the setting every scene happens in, e.g. a game universe
 }
 
 /** Raw AI media of a post, kept so the quote can be re-rendered on top after an edit. */

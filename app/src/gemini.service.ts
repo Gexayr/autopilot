@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { config } from './config';
 import { Page } from './entities';
+import { sceneRules } from './visual';
 
 export interface GeneratedPost {
   quote: string;
@@ -44,9 +45,7 @@ export class GeminiService {
       `- "hashtags": 8-15 relevant hashtags without the # sign, mixing popular and niche ones, in ${lang} and English.`,
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a 5-second video made from that image: what moves and how the camera moves (e.g. slow push-in, gentle pan).`,
-      page.character?.enabled && page.character.description
-        ? `The page has a recurring character that must be the main subject of the scene, doing something that fits the thought: ${page.character.description}`
-        : '',
+      ...sceneRules(page.character),
       `Never use em dashes (—) or en dashes (–) anywhere; use commas, colons or periods instead.`,
       hint ? `Extra instruction from the editor: ${hint}` : '',
       recentQuotes.length ? `Do NOT repeat or paraphrase any of these recent quotes:\n${recentQuotes.map((q) => `- ${q}`).join('\n')}` : '',
@@ -66,10 +65,21 @@ export class GeminiService {
       `An Instagram post (topic: ${page.niche}) carries this thought: "${quote}".`,
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a short video made from that image: what moves and how the camera moves.`,
-      page.character?.enabled && page.character.description ? `The main subject must be this recurring character: ${page.character.description}` : '',
+      ...sceneRules(page.character),
       previous ? `The previous scene was rejected, make a clearly different one (other place, action and mood):\n${previous}` : '',
     ].filter(Boolean).join('\n');
     return JSON.parse(await this.withRetries(prompt, SCENE_SCHEMA));
+  }
+
+  /** A short "it's a game about …" turned into a vivid description of the world for the scene prompts. */
+  async world(brief: string, language: string): Promise<string> {
+    const prompt = [
+      `Expand this short description into a vivid description of a visual world for an AI image and video generator: ${brief}`,
+      `Describe places, architecture or nature, era, technology or magic, colors, light, mood and typical details. 80-150 words, one paragraph.`,
+      `Write it in ${LANGS[language] ?? 'English'}. No lists, no headings. Never use em dashes or en dashes.`,
+    ].join('\n');
+    const out = JSON.parse(await this.withRetries(prompt, { type: 'OBJECT', properties: { world: STR }, required: ['world'] }));
+    return noDashes(String(out.world).trim());
   }
 
   /**
