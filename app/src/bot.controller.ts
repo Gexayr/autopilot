@@ -78,6 +78,15 @@ export class BotController {
     const chat = Number(user.telegramId);
     const reply = (t: string, kb?: any) => this.tg.send(chat, t, kb);
     const help = () => reply(bt(lang, 'help', { url: config.publicUrl }), this.openButton(lang));
+    // an admin answers a feedback message with Telegram's "Reply": the text goes to that user
+    const fbKey = m.reply_to_message ? `fb:msg:${chat}:${m.reply_to_message.message_id}` : null;
+    const fbUser = fbKey && user.role === 'admin' ? await this.kv.findOneBy({ key: fbKey }) : null;
+    if (fbUser && text) {
+      const to = await this.users.findOneBy({ id: fbUser.value as number });
+      if (!to?.telegramId) return reply(bt(lang, 'fb.noTelegram', { email: to?.email ?? '-' }));
+      await this.tg.send(Number(to.telegramId), bt(langOf(to), 'fb.answer', { text }));
+      return reply(bt(lang, 'fb.answered'));
+    }
     if (m.photo || m.video || m.document) return this.onUpload(m, user, lang);
     if (!text) return;
     if (!text.startsWith('/')) {

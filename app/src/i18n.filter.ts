@@ -41,6 +41,8 @@ const MESSAGES: [RegExp, string, string][] = [
   [/^Файл не получен$/, 'No file received', 'Ֆայլը չի ստացվել'],
   [/^Нужен JPEG\/PNG\/WebP$/, 'JPEG, PNG or WebP only', 'Անհրաժեշտ է JPEG, PNG կամ WebP'],
   [/^Не больше 4 картинок персонажа$/, 'At most 4 character pictures', 'Կերպարի առավելագույնը 4 նկար'],
+  [/^Напишите хотя бы пару слов$/, 'Write at least a few words', 'Գրեք գոնե մի քանի բառ'],
+  [/^Сегодня уже отправлено много сообщений, попробуйте завтра$/, 'Too many messages today, please try again tomorrow', 'Այսօր արդեն շատ հաղորդագրություններ են ուղարկվել, փորձեք վաղը'],
   [/^Выберите контент$/, 'Choose the content', 'Ընտրեք թեմա'],
   [/^Вы вошли в @(\S+), а для вас одобрены? (.+)\. Выйдите из Instagram и войдите в нужный аккаунт\.$/,
     'You logged in to @$1, but approved for you: $2. Log out of Instagram and log in to one of these accounts.',

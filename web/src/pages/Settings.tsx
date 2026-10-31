@@ -1,5 +1,5 @@
-import { Alert, Anchor, Avatar, Badge, Box, Button, Card, Group, Loader, NumberInput, Stack, Table, Text, Title } from '@mantine/core';
-import { IconBrandGoogle, IconBrandInstagram, IconBrandTelegram, IconCheck, IconChevronRight, IconKey, IconLink, IconLogout, IconSparkles, IconX } from '@tabler/icons-react';
+import { Alert, Anchor, Avatar, Badge, Box, Button, Card, FileButton, Group, Loader, NumberInput, SegmentedControl, Stack, Table, Text, Textarea, Title } from '@mantine/core';
+import { IconBrandGoogle, IconBrandInstagram, IconBrandTelegram, IconCheck, IconChevronRight, IconKey, IconLink, IconLogout, IconMessageCircle, IconPaperclip, IconSend, IconSparkles, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { AccessRequest, Account, AdminUser, api, GeneratorStatus } from '../api';
@@ -74,6 +74,8 @@ export default function Settings() {
           </Group>
         </Stack>
       </Card>
+
+      <FeedbackCard />
 
       {me!.role === 'admin' && <AdminAccessRequests />}
       {me!.role === 'admin' && <AdminUsers />}
@@ -222,6 +224,44 @@ function AdminGenerator() {
           )}
         </Stack>
       )}
+    </Card>
+  );
+}
+
+/** Ideas, problems, wishes: they reach the admin in Telegram, and the admin's reply comes back in the bot. */
+function FeedbackCard() {
+  const { me } = useAuth();
+  const [kind, setKind] = useState('idea');
+  const [text, setText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const { busy, run } = useAction();
+  const send = () => run('fb', async () => {
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('text', text);
+    if (file) form.append('file', file);
+    await api('feedback', { form });
+    setText('');
+    setFile(null);
+  }, t('fb.sent'));
+  return (
+    <Card withBorder>
+      <Group gap="xs" mb={4}><IconMessageCircle size={20} /><Text fw={600}>{t('fb.title')}</Text></Group>
+      <Text size="xs" c="dimmed" mb="sm">{t(me!.telegram ? 'fb.hint' : 'fb.hintNoTg')}</Text>
+      <Stack gap="sm">
+        <SegmentedControl fullWidth value={kind} onChange={setKind}
+          data={[{ value: 'idea', label: `💡 ${t('fb.idea')}` }, { value: 'bug', label: `🐞 ${t('fb.bug')}` }, { value: 'other', label: `✉️ ${t('fb.other')}` }]} />
+        <Textarea autosize minRows={3} maxLength={3000} placeholder={t(`fb.ph.${kind}` as Parameters<typeof t>[0])} value={text} onChange={(e) => setText(e.currentTarget.value)} />
+        <Group justify="space-between">
+          <Group gap="xs">
+            <FileButton onChange={setFile} accept="image/jpeg,image/png,image/webp">
+              {(props) => <Button {...props} size="xs" variant="subtle" leftSection={<IconPaperclip size={14} />}>{file ? file.name.slice(0, 24) : t('fb.attach')}</Button>}
+            </FileButton>
+            {file && <Button size="xs" variant="subtle" color="gray" onClick={() => setFile(null)}><IconX size={14} /></Button>}
+          </Group>
+          <Button leftSection={<IconSend size={16} />} disabled={text.trim().length < 3} loading={busy === 'fb'} onClick={send}>{t('fb.send')}</Button>
+        </Group>
+      </Stack>
     </Card>
   );
 }

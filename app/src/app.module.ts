@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { BotController } from './bot.controller';
+import { FeedbackController } from './feedback.controller';
 import { dataSourceOptions } from './data-source';
 import { ENTITIES } from './entities';
 import { GeminiService } from './gemini.service';
@@ -21,7 +22,7 @@ import { TelegramApi } from './telegram.api';
 
 @Module({
   imports: [TypeOrmModule.forRoot(dataSourceOptions), TypeOrmModule.forFeature(ENTITIES)],
-  controllers: [BotController, InstagramController, AuthController, PagesController, PostsController, AdminController, AccessController],
+  controllers: [BotController, InstagramController, AuthController, PagesController, PostsController, AdminController, AccessController, FeedbackController],
   providers: [TelegramApi, AuthService, AccessService, AuthGuard, InstagramService, GeminiService, RenderService, PostsService, SchedulerService],
 })
 export class AppModule {}

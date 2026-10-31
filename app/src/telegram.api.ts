@@ -40,6 +40,19 @@ export class TelegramApi {
     });
   }
 
+  /** A photo from memory (not a public URL), optionally as a reply. */
+  async sendPhotoFile(chatId: number, data: Buffer, filename: string, caption: string, replyTo?: number) {
+    const form = new FormData();
+    form.append('chat_id', String(chatId));
+    form.append('caption', caption.slice(0, 1024));
+    if (replyTo) form.append('reply_parameters', JSON.stringify({ message_id: replyTo }));
+    form.append('photo', new Blob([new Uint8Array(data)]), filename);
+    const res = await fetch(`https://api.telegram.org/bot${config.telegram.token}/sendPhoto`, { method: 'POST', body: form, signal: AbortSignal.timeout(60_000) });
+    const json: any = await res.json();
+    if (!json.ok) throw new Error(`telegram sendPhoto: ${json.description}`);
+    return json.result as { message_id: number };
+  }
+
   async clearKeyboard(chatId: number, messageId: number | string, note?: string) {
     try {
       await this.call('editMessageReplyMarkup', { chat_id: chatId, message_id: Number(messageId), reply_markup: { inline_keyboard: [] } });
