@@ -73,6 +73,7 @@ function styleFields(s: any): PageStyle {
   if (s?.font) style.font = s.font === 'sans' ? 'sans' : 'serif';
   if (s?.signature) style.signature = String(s.signature).slice(0, 40);
   if (s?.media) style.media = s.media === 'ai' ? 'ai' : 'card';
+  if (s?.text === false) style.text = false; // AI media without the quote on it (default: with)
   return style;
 }
 
