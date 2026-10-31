@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, Page, PageStyle, Theme } from '../api';
 import { useLoad } from '../hooks';
 import { Key, lang, t, variants } from '../i18n';
-import { LANGUAGES, SLOT_GAP_MIN, slotConflicts, TIMEZONES } from '../util';
+import { LANGUAGES, SLOT_GAP_MIN, SLOT_RE, slotConflicts, TIMEZONES } from '../util';
 
 export interface PageDraft {
   title: string; niche: string; language: string; slots: string[]; reelsRatio: number; timezone: string;
@@ -22,6 +22,9 @@ const presetNiche = (key: string) => (key === 'custom' ? '' : t(`preset.${key}.n
 const presetOf = (niche: string) => PRESET_KEYS.find((p) => p.key !== 'custom' && variants(`preset.${p.key}.niche` as Key).includes(niche))?.key ?? 'custom';
 
 const HOURS = Array.from({ length: 17 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
+const h2 = (h: number) => `${String(h).padStart(2, '0')}:00`;
+// fixed hours plus one-hour windows (a random minute inside, so posts don't look scheduled)
+const TIME_OPTIONS = [...HOURS, ...Array.from({ length: 16 }, (_, i) => `${h2(i + 7)}-${h2(i + 8)}`)];
 
 export const emptyDraft = (): PageDraft => ({
   title: '', niche: presetNiche('motivation'), language: lang(), slots: ['12:00'], reelsRatio: 0.3, timezone: 'Asia/Yerevan',
@@ -58,7 +61,7 @@ export function ScheduleFields({ v, set, advanced, others = [], account }: { v: 
   return (
     <Stack>
       <TagsInput label={t('form.times')} description={t('form.timesHint')}
-        data={HOURS} value={v.slots} onChange={(s) => set({ slots: s.filter((x) => /^\d{1,2}:\d{2}$/.test(x)) })} placeholder={t('form.timesPh')} clearable />
+        data={TIME_OPTIONS} value={v.slots} onChange={(s) => set({ slots: s.map((x) => x.replace(/\s+/g, '')).filter((x) => SLOT_RE.test(x)) })} placeholder={t('form.timesPh')} clearable />
       {conflicts.map((c) => (
         <Alert key={c.slot} color="yellow" p="sm">
           <Text size="sm">{t('form.conflict', { account: account ? `@${account}` : t('form.thisAccount'), time: c.otherTime, rubric: c.page, gap: SLOT_GAP_MIN })}</Text>
@@ -144,6 +147,10 @@ export function StyleFields({ v, set }: { v: PageDraft; set: Set }) {
             data={[{ value: 'card', label: t('form.mediaCard') }, { value: 'ai', label: `✨ ${t('form.mediaAi')}` }]} />
           <Text size="xs" c="dimmed" mt={4}>{t(v.style.media === 'ai' ? 'form.mediaAiHint' : 'form.mediaCardHint')}</Text>
         </div>
+        {v.style.media === 'ai' && (
+          <Switch checked={v.style.text !== false} onChange={(e) => setStyle({ text: e.currentTarget.checked })}
+            label={t('form.textOnMedia')} description={t('form.textOnMediaHint')} />
+        )}
       </Stack>
       <Box pos="relative" maw={320} mx="auto" w="100%">
         <Box className="media-box" style={{ aspectRatio: '4 / 5' }}>{preview && <Image src={preview} alt={t('form.example')} />}</Box>

@@ -141,6 +141,12 @@ export class GeneratorService {
       await this.posts.update(post.id, { render }); // a retry won't draw the picture again
     }
 
+    // Reels: the clip costs credits, so the still is approved first (unless the page approves everything itself)
+    if (post.kind === 'VIDEO' && !render.frameOk && !page.autoApprove) {
+      await this.postsService.askFrame(post.id);
+      return;
+    }
+
     if (post.kind === 'VIDEO' && !render.aiVideo) {
       const motion = `${render.motion ?? 'Slow cinematic push-in, gentle natural motion.'} Keep the main subject consistent.`;
       const image = join(config.mediaDir, render.aiImage);
@@ -176,7 +182,7 @@ export class GeneratorService {
       const started = Date.now();
       try {
         const out = await p.run();
-        steps.push({ step, provider: p.name, ok: true, ms: Date.now() - started });
+        steps.push({ step, provider: p.name, ok: true, ms: Date.now() - started, ...(this.pixverse.lastCost != null && p.name.startsWith('pixverse') && { credits: this.pixverse.lastCost }) });
         return out;
       } catch (e) {
         last = e;
@@ -224,7 +230,7 @@ export class GeneratorService {
       await this.posts.update(post.id, { render: post.render });
       await this.postsService.renderMedia(post, page);
       await this.postsService.releaseGenerated(post.id);
-      await this.notifyAdmins(`gen:notified:fallback:${this.today()}`, (l) => bt(l, 'gen.fallback', { id: post.id, m: reason.slice(0, 300) }));
+      await this.notifyAdmins(`gen:notified:fallback:${this.today()}`, (l) => bt(l, 'gen.fallback', { id: `${page.title} #${post.num ?? post.id}`, m: reason.slice(0, 300) }));
     } catch (e) {
       this.log.error(`fallback for post ${post.id}: ${(e as Error).message}`);
     }

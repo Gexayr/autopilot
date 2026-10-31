@@ -12,6 +12,14 @@ export interface GeneratedPost {
 
 const LANGS: Record<string, string> = { ru: 'Russian', en: 'English', hy: 'Armenian' };
 
+const STR = { type: 'STRING' };
+const POST_SCHEMA = {
+  type: 'OBJECT',
+  properties: { quote: STR, caption: STR, hashtags: { type: 'ARRAY', items: STR }, scene: STR, motion: STR },
+  required: ['quote', 'caption', 'hashtags', 'scene', 'motion'],
+};
+const SCENE_SCHEMA = { type: 'OBJECT', properties: { scene: STR, motion: STR }, required: ['scene', 'motion'] };
+
 const BUSY = new Set([429, 500, 502, 503, 504]);
 
 /** `busy` = overloaded or rate-limited: worth retrying later. */
@@ -44,7 +52,7 @@ export class GeminiService {
       recentQuotes.length ? `Do NOT repeat or paraphrase any of these recent quotes:\n${recentQuotes.map((q) => `- ${q}`).join('\n')}` : '',
     ].filter(Boolean).join('\n');
 
-    const text = await this.withRetries(prompt);
+    const text = await this.withRetries(prompt, POST_SCHEMA);
     const out = JSON.parse(text) as GeneratedPost;
     out.quote = noDashes(out.quote.trim().replace(/^["«“]+|["»”]+$/g, ''));
     out.caption = noDashes(out.caption);
@@ -52,17 +60,29 @@ export class GeminiService {
     return out;
   }
 
+  /** Another picture for the same quote (the user didn't like the previous still). */
+  async scene(page: Page, quote: string, previous?: string): Promise<{ scene: string; motion: string }> {
+    const prompt = [
+      `An Instagram post (topic: ${page.niche}) carries this thought: "${quote}".`,
+      `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
+      `- "motion": in English, one sentence for a short video made from that image: what moves and how the camera moves.`,
+      page.character?.enabled && page.character.description ? `The main subject must be this recurring character: ${page.character.description}` : '',
+      previous ? `The previous scene was rejected, make a clearly different one (other place, action and mood):\n${previous}` : '',
+    ].filter(Boolean).join('\n');
+    return JSON.parse(await this.withRetries(prompt, SCENE_SCHEMA));
+  }
+
   /**
    * Gemini's free tier often answers 503 "high demand" for a minute or two: retry, then fall back to lighter models
    * (config.gemini.fallbacks) instead of failing the post.
    */
-  private async withRetries(prompt: string): Promise<string> {
+  private async withRetries(prompt: string, schema: object): Promise<string> {
     const models = [...new Set([config.gemini.model, ...config.gemini.fallbacks])];
     let last: unknown;
     for (const model of models) {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          return await this.request(model, prompt);
+          return await this.request(model, prompt, schema);
         } catch (e) {
           last = e;
           if (!(e instanceof GeminiError && e.busy) && (e as Error).name !== 'TimeoutError') throw e;
@@ -74,7 +94,7 @@ export class GeminiService {
     throw new GeminiError('Gemini busy', true, last);
   }
 
-  private async request(model: string, prompt: string): Promise<string> {
+  private async request(model: string, prompt: string, schema: object): Promise<string> {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
@@ -85,17 +105,7 @@ export class GeminiService {
           generationConfig: {
             temperature: 1.1,
             responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'OBJECT',
-              properties: {
-                quote: { type: 'STRING' },
-                caption: { type: 'STRING' },
-                hashtags: { type: 'ARRAY', items: { type: 'STRING' } },
-                scene: { type: 'STRING' },
-                motion: { type: 'STRING' },
-              },
-              required: ['quote', 'caption', 'hashtags', 'scene', 'motion'],
-            },
+            responseSchema: schema,
           },
         }),
         signal: AbortSignal.timeout(60_000),
@@ -107,5 +117,4 @@ export class GeminiService {
     if (!text) throw new GeminiError(`Gemini returned no text (${json.candidates?.[0]?.finishReason ?? 'unknown'})`, true);
     return text as string;
   }
-
 }

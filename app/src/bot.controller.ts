@@ -178,10 +178,19 @@ export class BotController {
         await this.posts.ownedPost(user.id, id);
         await this.tg.clearKeyboard(chat, msgId, bt(lang, 'regenerating'));
         return this.posts.regenerate(id);
-      case 'ed':
-        await this.posts.ownedPost(user.id, id);
+      case 'ed': {
+        const { post } = await this.posts.ownedPost(user.id, id);
         await this.kv.save({ key: `edit:${chat}`, value: id });
-        return this.tg.send(chat, bt(lang, 'editPrompt', { id }));
+        return this.tg.send(chat, bt(lang, 'editPrompt', { id: post.num ?? id }));
+      }
+      case 'fv': // AI Reels: the still is fine, make the clip
+        await this.posts.ownedPost(user.id, id);
+        await this.posts.approveFrame(id);
+        return this.tg.clearKeyboard(chat, msgId, bt(lang, 'animating'));
+      case 'fn': // another still for the same quote
+        await this.posts.ownedPost(user.id, id);
+        await this.tg.clearKeyboard(chat, msgId, bt(lang, 'newFrameWorking'));
+        return this.posts.newFrame(id);
       case 'pg': {
         const draft = await this.kv.findOneBy({ key: `draft:${id}` });
         const page = await this.posts.findPage(b, user.id);

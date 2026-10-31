@@ -87,12 +87,12 @@ export class RenderService {
     return new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render().asPng();
   }
 
-  /** AI picture (any size) cropped to 1080×1350 with the quote on top. */
-  async overlayImage(aiImage: string, quote: string, style: PageStyle, theme: string): Promise<string> {
+  /** AI picture (any size) cropped to 1080×1350, with the quote on top unless `quote` is null (pure picture). */
+  async overlayImage(aiImage: string, quote: string | null, style: PageStyle, theme: string): Promise<string> {
     const file = randomName('jpg');
-    const layer = await this.overlay(quote, style, theme, 1080, 1350, 96);
-    await sharp(join(config.mediaDir, aiImage)).resize(1080, 1350, { fit: 'cover' })
-      .composite([{ input: layer }]).jpeg({ quality: 90, mozjpeg: true }).toFile(join(config.mediaDir, file));
+    const img = sharp(join(config.mediaDir, aiImage)).resize(1080, 1350, { fit: 'cover' });
+    if (quote) img.composite([{ input: await this.overlay(quote, style, theme, 1080, 1350, 96) }]);
+    await img.jpeg({ quality: 90, mozjpeg: true }).toFile(join(config.mediaDir, file));
     return file;
   }
 
@@ -100,20 +100,22 @@ export class RenderService {
    * AI clip cropped to 1080×1920 Reels with the quote fading in. The text sits above the bottom ~300 px,
    * where Instagram draws its caption and buttons. A silent track is added: some players reject video-only Reels.
    */
-  async overlayVideo(aiVideo: string, quote: string, style: PageStyle, theme: string): Promise<string> {
+  async overlayVideo(aiVideo: string, quote: string | null, style: PageStyle, theme: string): Promise<string> {
     const file = randomName('mp4');
     const layer = join(config.mediaDir, `.${file}.png`);
-    await writeFile(layer, await this.overlay(quote, style, theme, 1080, 1920, 330));
+    if (quote) await writeFile(layer, await this.overlay(quote, style, theme, 1080, 1920, 330));
+    // the clip itself is made at 360-480p (that's what costs credits); scaling it up here is free and keeps the text sharp
+    const scale = '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1';
     try {
       await run('ffmpeg', [
         '-y', '-loglevel', 'error',
         '-i', join(config.mediaDir, aiVideo),
-        '-loop', '1', '-i', layer,
+        ...(quote ? ['-loop', '1', '-i', layer] : []),
         '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
-        '-filter_complex',
-        '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1[bg];' +
-        '[1:v]format=rgba,fade=t=in:st=0.3:d=0.7:alpha=1[ov];[bg][ov]overlay=0:0:shortest=1,format=yuv420p[v]',
-        '-map', '[v]', '-map', '2:a', '-shortest',
+        '-filter_complex', quote
+          ? `${scale}[bg];[1:v]format=rgba,fade=t=in:st=0.3:d=0.7:alpha=1[ov];[bg][ov]overlay=0:0:shortest=1,format=yuv420p[v]`
+          : `${scale},format=yuv420p[v]`,
+        '-map', '[v]', '-map', `${quote ? 2 : 1}:a`, '-shortest',
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-profile:v', 'high',
         '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart',
         join(config.mediaDir, file),

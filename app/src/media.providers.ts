@@ -86,6 +86,8 @@ export class DashScope {
 @Injectable()
 export class PixVerse {
   private readonly log = new Logger(PixVerse.name);
+  /** Credits charged by the last generation (`cost_credits` in the CLI answer), for the job log. */
+  lastCost: number | null = null;
 
   /** acc1 … accN from PIXVERSE_ACCOUNTS. */
   accounts() {
@@ -141,6 +143,7 @@ export class PixVerse {
 
   /** The CLI's JSON isn't fully documented: take a URL / file / asset id from whatever shape comes back. */
   private async fetchAsset(acc: string, result: any): Promise<Buffer> {
+    this.lastCost = typeof result?.cost_credits === 'number' ? result.cost_credits : null;
     const pick = (r: any) => {
       const a = r?.assets?.[0] ?? r?.result?.assets?.[0] ?? r?.data?.assets?.[0] ?? r;
       return {
@@ -174,7 +177,7 @@ export class PixVerse {
   async imageToVideo(acc: string, image: string, prompt: string): Promise<Buffer> {
     const result = await this.cli(acc, [
       'create', 'video', '--image', image, '--prompt', prompt, '--model', config.pixverse.videoModel,
-      '--quality', config.pixverse.videoQuality, '--duration', '5', '--aspect-ratio', '9:16', '--no-audio', '--timeout', '600',
+      '--quality', config.pixverse.videoQuality, '--duration', String(config.pixverse.videoDuration), '--aspect-ratio', '9:16', '--no-audio', '--timeout', '600',
     ], 600);
     return this.fetchAsset(acc, result);
   }

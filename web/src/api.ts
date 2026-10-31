@@ -3,7 +3,7 @@ import { lang, t } from './i18n';
 
 export interface Me { id: number; name: string; avatarUrl: string | null; email: string | null; telegram: boolean; role: 'admin' | 'user'; status: 'active' | 'pending' | 'blocked'; maxPages: number; language: 'ru' | 'en' | 'hy' | null }
 export interface PublicConfig { botUsername: string | null; googleClientId: string | null; instagramReady: boolean }
-export interface PageStyle { theme?: string; font?: 'serif' | 'sans'; signature?: string; media?: 'card' | 'ai' }
+export interface PageStyle { theme?: string; font?: 'serif' | 'sans'; signature?: string; media?: 'card' | 'ai'; text?: boolean }
 export interface PageCharacter { enabled: boolean; description: string; refs: { file: string; url: string }[] }
 export interface Page {
   id: number; slug: string; title: string; igAccountId: number; niche: string; language: string; style: PageStyle;
@@ -16,10 +16,10 @@ export interface Account {
   id: number; username: string; tokenExpiresAt: string | null; lastError: string | null; followers: number | null;
   mediaCount: number | null; avatarUrl: string | null; pages: { id: number; title: string }[]; queued: number;
 }
-export type PostStatus = 'draft' | 'generating' | 'awaiting_approval' | 'approved' | 'publishing' | 'published' | 'failed' | 'rejected';
+export type PostStatus = 'draft' | 'generating' | 'frame_approval' | 'awaiting_approval' | 'approved' | 'publishing' | 'published' | 'failed' | 'rejected';
 export interface Post {
-  id: number; pageId: number; kind: 'IMAGE' | 'VIDEO'; source: 'ai' | 'upload'; status: PostStatus; quote: string | null; caption: string;
-  mediaUrl: string | null; scheduledFor: string | null; publishedAt: string | null; permalink: string | null; error: string | null;
+  id: number; num: number | null; pageId: number; kind: 'IMAGE' | 'VIDEO'; source: 'ai' | 'upload'; status: PostStatus; quote: string | null; caption: string;
+  mediaUrl: string | null; frameUrl: string | null; scheduledFor: string | null; publishedAt: string | null; permalink: string | null; error: string | null;
   stats: Record<string, number> | null; createdAt: string;
 }
 export interface Theme { key: string; bg: string; text: string; accent: string }

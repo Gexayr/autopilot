@@ -4,6 +4,7 @@ export type PostKind = 'IMAGE' | 'VIDEO';
 export type PostStatus =
   | 'draft' // uploaded by hand, page not chosen yet
   | 'generating' // AI image / video is being made by the generator (media_jobs)
+  | 'frame_approval' // AI Reels: the still waits for approval before the (paid) clip is made
   | 'awaiting_approval'
   | 'approved' // has scheduledFor
   | 'publishing'
@@ -16,6 +17,7 @@ export interface PageStyle {
   font?: 'serif' | 'sans';
   signature?: string; // small text at the bottom, e.g. @handle
   media?: 'card' | 'ai'; // quote card (default) or AI image / video under the quote
+  text?: boolean; // AI media: put the quote on top (default) or publish the pure picture / clip
 }
 
 /** A recurring character drawn into AI scenes from reference images (files in MEDIA_DIR). */
@@ -34,6 +36,7 @@ export interface PostRender {
   aiImage?: string;
   aiVideo?: string;
   fallback?: boolean; // AI failed, the post got a quote card instead
+  frameOk?: boolean; // the still was approved: make the clip and queue it right away
 }
 
 export type UserRole = 'admin' | 'user';
@@ -90,6 +93,7 @@ export class Page {
 export class Post {
   @PrimaryGeneratedColumn() id: number;
   @Column({ type: 'int', nullable: true }) pageId: number | null;
+  @Column({ type: 'int', nullable: true }) num: number | null; // #1, #2, … inside the page
   @Column({ type: 'varchar' }) kind: PostKind;
   @Column({ type: 'varchar', default: 'ai' }) source: 'ai' | 'upload';
   @Column({ type: 'varchar' }) status: PostStatus;
@@ -144,7 +148,7 @@ export class MediaJob {
   @Column({ default: 0 }) attempts: number;
   @Column({ type: 'text', nullable: true }) error: string | null;
   // every provider call: which one, whether it worked, how long it took
-  @Column({ type: 'jsonb', default: [] }) steps: { step: 'image' | 'video'; provider: string; ok: boolean; ms: number; error?: string }[];
+  @Column({ type: 'jsonb', default: [] }) steps: { step: 'image' | 'video'; provider: string; ok: boolean; ms: number; credits?: number; error?: string }[];
   @CreateDateColumn({ type: 'timestamptz' }) createdAt: Date;
   @Column({ type: 'timestamptz', nullable: true }) startedAt: Date | null;
   @Column({ type: 'timestamptz', nullable: true }) finishedAt: Date | null;

@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Card, Center, Group, Loader, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
-import { IconCheck, IconPencil, IconRefresh, IconSparkles, IconX } from '@tabler/icons-react';
+import { IconCheck, IconMovie, IconPencil, IconPhotoEdit, IconRefresh, IconSparkles, IconX } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, Page, Post } from '../api';
@@ -13,7 +13,7 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
   const [params, setParams] = useSearchParams();
   const pageFilter = params.get('page');
   const pages = useLoad(() => api<Page[]>('pages'));
-  const posts = useLoad(() => api<Post[]>('posts?status=generating,awaiting_approval'), [], 8_000);
+  const posts = useLoad(() => api<Post[]>('posts?status=generating,frame_approval,awaiting_approval'), [], 8_000);
   // queued posts are needed to show which slot an approved post would take
   const queued = useLoad(() => api<Post[]>('posts?status=approved'), [posts.data?.length]);
   const [editing, setEditing] = useState<Post | null>(null);
@@ -36,6 +36,11 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
     posts.setData((xs) => xs?.filter((x) => x.id !== p.id) ?? null);
     await refresh();
   }, { approve: t('approvals.approved'), reject: t('approvals.discarded'), regenerate: t('approvals.regenerating') }[action]);
+
+  const frame = (p: Post, action: 'approve' | 'new') => run(`frame${action}${p.id}`, async () => {
+    await api(`posts/${p.id}/frame/${action}`, { body: {} });
+    await refresh();
+  }, action === 'approve' ? t('approvals.animating') : t('approvals.newFrameToast'));
 
   const generate = () => run('gen', async () => {
     await api(`pages/${genPage}/generate`, { body: { hint, language: genLang ?? undefined } });
@@ -65,6 +70,27 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
         {list.map((p) => {
           const page = pageOf(p.pageId);
+          if (p.status === 'frame_approval') return (
+            <Card key={p.id} withBorder padding="sm">
+              <Card.Section pos="relative">
+                {p.frameUrl && <img src={p.frameUrl} alt="" style={{ width: '100%', maxHeight: 520, objectFit: 'cover', display: 'block' }} />}
+                <Badge pos="absolute" top={8} left={8} color="orange">{t('approvals.frameBadge')}</Badge>
+              </Card.Section>
+              <Stack gap={6} mt="sm">
+                <Group justify="space-between" gap={4}>
+                  <Badge color={pageColor(p.pageId)} variant="light">{page?.title}</Badge>
+                  <Text size="xs" c="dimmed">🎬 {t('common.reels')} #{p.num ?? p.id}</Text>
+                </Group>
+                {p.quote && <Text fw={600} size="sm">«{p.quote}»</Text>}
+                <Text size="xs" c="dimmed">{t('approvals.frameHint')}</Text>
+                <Group gap={6} grow mt={4}>
+                  <Button size="xs" color="green" leftSection={<IconMovie size={14} />} loading={busy === `frameapprove${p.id}`} onClick={() => frame(p, 'approve')}>{t('approvals.animate')}</Button>
+                  <Button size="xs" variant="default" leftSection={<IconPhotoEdit size={14} />} loading={busy === `framenew${p.id}`} onClick={() => frame(p, 'new')}>{t('approvals.newFrame')}</Button>
+                </Group>
+                <Button size="xs" variant="subtle" color="red" leftSection={<IconX size={14} />} loading={busy === `reject${p.id}`} onClick={() => act(p, 'reject')}>{t('approvals.discard')}</Button>
+              </Stack>
+            </Card>
+          );
           if (p.status === 'generating') return (
             <Card key={p.id} withBorder padding="sm">
               <Card.Section>
@@ -75,7 +101,7 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
               <Stack gap={6} mt="sm">
                 <Group justify="space-between" gap={4}>
                   <Badge color={pageColor(p.pageId)} variant="light">{page?.title}</Badge>
-                  <Text size="xs" c="dimmed">{p.kind === 'VIDEO' ? `🎬 ${t('common.reels')}` : `🖼 ${t('common.post')}`} #{p.id}</Text>
+                  <Text size="xs" c="dimmed">{p.kind === 'VIDEO' ? `🎬 ${t('common.reels')}` : `🖼 ${t('common.post')}`} #{p.num ?? p.id}</Text>
                 </Group>
                 {p.quote && <Text fw={600} size="sm">«{p.quote}»</Text>}
                 <Button size="xs" variant="subtle" color="red" leftSection={<IconX size={14} />} loading={busy === `reject${p.id}`} onClick={() => act(p, 'reject')}>{t('approvals.discard')}</Button>
@@ -89,7 +115,7 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
               <Stack gap={6} mt="sm">
                 <Group justify="space-between" gap={4}>
                   <Badge color={pageColor(p.pageId)} variant="light">{page?.title}</Badge>
-                  <Text size="xs" c="dimmed">{p.kind === 'VIDEO' ? `🎬 ${t('common.reels')}` : `🖼 ${t('common.post')}`} #{p.id}</Text>
+                  <Text size="xs" c="dimmed">{p.kind === 'VIDEO' ? `🎬 ${t('common.reels')}` : `🖼 ${t('common.post')}`} #{p.num ?? p.id}</Text>
                 </Group>
                 {p.quote && <Text fw={600} size="sm">«{p.quote}»</Text>}
                 <Text size="sm" c="dimmed" className="clamp-3">{p.caption}</Text>

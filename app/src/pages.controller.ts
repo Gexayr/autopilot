@@ -295,7 +295,7 @@ export class PagesController {
     const acc = await this.accounts.findOneBy({ id: p.igAccountId });
     const [queued, waiting, generating, next, stats] = await Promise.all([
       this.postRepo.countBy({ pageId: p.id, status: 'approved' }),
-      this.postRepo.countBy({ pageId: p.id, status: 'awaiting_approval' }),
+      this.postRepo.countBy({ pageId: p.id, status: In(['awaiting_approval', 'frame_approval']) }),
       this.postRepo.countBy({ pageId: p.id, status: 'generating' }),
       this.postRepo.findOne({ where: { pageId: p.id, status: 'approved', scheduledFor: Not(IsNull()) }, order: { scheduledFor: 'ASC' }, select: ['id', 'scheduledFor', 'kind'] }),
       this.pageStats.find({ where: { pageId: p.id }, order: { day: 'DESC' }, take: 8 }),

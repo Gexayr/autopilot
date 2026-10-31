@@ -1,28 +1,52 @@
 import { DateTime } from 'luxon';
 
-const parse = (s: string) => {
+const parseTime = (s: string) => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
-  if (!m || +m[1] > 23 || +m[2] > 59) throw new Error(`bad slot "${s}", expected HH:MM`);
+  if (!m || +m[1] > 23 || +m[2] > 59) return null;
   return { hour: +m[1], minute: +m[2] };
 };
 
-/** Slot times strictly after `from`, in order, for a page's daily HH:MM slots in its timezone. */
-export function* slotTimes(slots: string[], tz: string, from: Date): Generator<Date> {
-  const times = slots.map(parse).sort((a, b) => a.hour - b.hour || a.minute - b.minute);
-  if (!times.length) return;
+/** "HH:MM" = exact time; "HH:MM-HH:MM" = a random minute inside the window, different every day. */
+const parse = (s: string) => {
+  const [a, b] = s.split('-');
+  const start = parseTime(a);
+  const end = b === undefined ? null : parseTime(b);
+  if (!start || (b !== undefined && (!end || end.hour * 60 + end.minute <= start.hour * 60 + start.minute)))
+    throw new Error(`bad slot "${s}", expected HH:MM or HH:MM-HH:MM`);
+  return { start, end };
+};
+
+/** Publishing windows strictly after `from`, in order; an exact time is a one-minute window. */
+export function* slotWindows(slots: string[], tz: string, from: Date): Generator<{ start: Date; end: Date }> {
+  const windows = slots.map(parse).sort((a, b) => a.start.hour - b.start.hour || a.start.minute - b.start.minute);
+  if (!windows.length) return;
   let day = DateTime.fromJSDate(from).setZone(tz).startOf('day');
   for (let i = 0; i < 3660; i++, day = day.plus({ days: 1 })) {
-    for (const t of times) {
-      const at = day.set({ hour: t.hour, minute: t.minute });
-      if (at.toMillis() > from.getTime()) yield at.toJSDate();
+    for (const w of windows) {
+      const start = day.set({ hour: w.start.hour, minute: w.start.minute });
+      const end = w.end ? day.set({ hour: w.end.hour, minute: w.end.minute }) : start.plus({ minutes: 1 });
+      if (end.toMillis() > from.getTime() + 60_000) yield { start: start.toJSDate(), end: end.toJSDate() };
     }
   }
 }
 
-/** First slot after `from` that no other post of the page already occupies. */
-export function nextFreeSlot(slots: string[], tz: string, taken: Date[], from: Date): Date {
-  const busy = new Set(taken.map((d) => d.getTime()));
-  for (const at of slotTimes(slots, tz, from)) if (!busy.has(at.getTime())) return at;
+/** Start of every publishing window after `from` (kept for validation and tests). */
+export function* slotTimes(slots: string[], tz: string, from: Date): Generator<Date> {
+  for (const w of slotWindows(slots, tz, from)) if (w.start.getTime() > from.getTime()) yield w.start;
+}
+
+/**
+ * First window after `from` with no post of the page in it. Exact times return that time; a range returns
+ * a random minute inside it (not earlier than `from`), so posts don't come out at the same minute every day.
+ */
+export function nextFreeSlot(slots: string[], tz: string, taken: Date[], from: Date, random = Math.random): Date {
+  for (const w of slotWindows(slots, tz, from)) {
+    const lo = Math.max(w.start.getTime(), Math.ceil(from.getTime() / 60_000) * 60_000);
+    if (lo >= w.end.getTime()) continue;
+    if (taken.some((t) => t.getTime() >= w.start.getTime() && t.getTime() < w.end.getTime())) continue;
+    const minutes = Math.floor((w.end.getTime() - lo) / 60_000); // ≥ 1
+    return new Date(lo + Math.floor(random() * minutes) * 60_000);
+  }
   throw new Error('no free slot');
 }
 

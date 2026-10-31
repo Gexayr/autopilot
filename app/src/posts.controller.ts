@@ -14,15 +14,15 @@ import { PostsService } from './posts.service';
 import { bt } from './bot.i18n';
 import { formatSlot } from './slots';
 
-const STATUSES: PostStatus[] = ['draft', 'generating', 'awaiting_approval', 'approved', 'publishing', 'published', 'failed', 'rejected'];
+const STATUSES: PostStatus[] = ['draft', 'generating', 'frame_approval', 'awaiting_approval', 'approved', 'publishing', 'published', 'failed', 'rejected'];
 const MIME: Record<string, { kind: Post['kind']; ext: string }> = {
   'image/jpeg': { kind: 'IMAGE', ext: 'jpg' }, 'image/png': { kind: 'IMAGE', ext: 'png' }, 'image/webp': { kind: 'IMAGE', ext: 'webp' },
   'video/mp4': { kind: 'VIDEO', ext: 'mp4' }, 'video/quicktime': { kind: 'VIDEO', ext: 'mov' },
 };
 
 const view = (p: Post) => ({
-  id: p.id, pageId: p.pageId, kind: p.kind, source: p.source, status: p.status, quote: p.quote, caption: p.caption,
-  mediaUrl: p.mediaFile ? mediaUrl(p.mediaFile) : null, scheduledFor: p.scheduledFor, publishedAt: p.publishedAt,
+  id: p.id, num: p.num, pageId: p.pageId, kind: p.kind, source: p.source, status: p.status, quote: p.quote, caption: p.caption,
+  mediaUrl: p.mediaFile ? mediaUrl(p.mediaFile) : null, frameUrl: p.status === 'frame_approval' && p.render.aiImage ? mediaUrl(p.render.aiImage) : null, scheduledFor: p.scheduledFor, publishedAt: p.publishedAt,
   permalink: p.permalink, error: p.error, stats: p.stats, createdAt: p.createdAt,
 });
 
@@ -61,6 +61,26 @@ export class PostsController {
     const done = await this.posts.approve(id);
     await this.posts.closePreview(post, page, (l) => bt(l, 'web.approved', { at: formatSlot(done.scheduledFor!, page.timezone, l) }));
     return view(await this.postRepo.findOneByOrFail({ id }));
+  }
+
+  /** AI Reels: the still is fine, make the clip (it goes straight to the queue when ready). */
+  @HttpPost('posts/:id/frame/approve')
+  @HttpCode(200)
+  async approveFrame(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number) {
+    const { post, page } = await this.posts.ownedPost(user.id, id);
+    await this.posts.approveFrame(id);
+    await this.posts.closePreview(post, page, (l) => bt(l, 'animating'));
+    return { ok: true };
+  }
+
+  /** AI Reels: another still with a different scene for the same quote. */
+  @HttpPost('posts/:id/frame/new')
+  @HttpCode(202)
+  async newFrame(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number) {
+    const { post, page } = await this.posts.ownedPost(user.id, id);
+    await this.posts.closePreview(post, page, (l) => bt(l, 'newFrameWorking'));
+    await this.posts.newFrame(id);
+    return { ok: true };
   }
 
   @HttpPost('posts/:id/reject')

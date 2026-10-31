@@ -43,7 +43,7 @@ function Shell() {
   const { pathname } = useLocation();
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   // badge with the number of posts waiting for approval; refreshes every 30 s
-  const waiting = useLoad(() => api<Post[]>('posts?status=awaiting_approval'), [pathname], 30_000);
+  const waiting = useLoad(() => api<Post[]>('posts?status=awaiting_approval,frame_approval'), [pathname], 30_000);
   const nWaiting = waiting.data?.length ?? 0;
   const isActive = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to));
 

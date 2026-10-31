@@ -39,6 +39,8 @@ export const config = {
     accounts: Number(env('PIXVERSE_ACCOUNTS', '0')),
     videoModel: env('PIXVERSE_VIDEO_MODEL', 'v6'),
     videoQuality: env('PIXVERSE_VIDEO_QUALITY', '360p'),
+    // free plan: 4 credits per second at 360p (4 s = 16 of the 30 daily credits)
+    videoDuration: Number(env('PIXVERSE_VIDEO_DURATION', '4')),
     imageModel: env('PIXVERSE_IMAGE_MODEL', 'gemini-3.1-flash-lite'),
   },
 };

@@ -98,9 +98,10 @@ export class PostsService {
       const kind = Math.random() < page.reelsRatio ? 'VIDEO' : 'IMAGE';
       const theme = pickTheme(page.style, Math.floor(Math.random() * 1000));
       const ai = page.style.media === 'ai';
+      const pure = ai && page.style.text === false; // no quote on the media: it opens the caption instead
       const post = this.posts.create({
-        pageId: page.id, kind, source: 'ai', status: ai ? 'generating' : 'awaiting_approval', quote: g.quote,
-        caption: `${g.caption}\n\n${g.hashtags.map((t) => `#${t}`).join(' ')}`.slice(0, 2200),
+        pageId: page.id, num: await this.nextNum(page.id), kind, source: 'ai', status: ai ? 'generating' : 'awaiting_approval', quote: g.quote,
+        caption: `${pure ? `${g.quote}\n\n` : ''}${g.caption}\n\n${g.hashtags.map((t) => `#${t}`).join(' ')}`.slice(0, 2200),
         contentHash: hashQuote(g.quote), render: { theme, ...(lang && { lang }), ...(ai && { scene: g.scene, motion: g.motion }) },
       });
       try {
@@ -129,9 +130,10 @@ export class PostsService {
   async renderMedia(post: Post, page: Page) {
     const old = post.mediaFile;
     const { theme, aiImage, aiVideo } = post.render;
+    const text = page.style.text === false ? null : post.quote; // AI media can go out without the quote on it
     post.mediaFile = post.kind === 'VIDEO'
-      ? aiVideo ? await this.render.overlayVideo(aiVideo, post.quote!, page.style, theme!) : await this.render.quoteReel(post.quote!, page.style, theme!)
-      : aiImage ? await this.render.overlayImage(aiImage, post.quote!, page.style, theme!) : await this.render.quoteImage(post.quote!, page.style, theme!);
+      ? aiVideo ? await this.render.overlayVideo(aiVideo, text, page.style, theme!) : await this.render.quoteReel(post.quote!, page.style, theme!)
+      : aiImage ? await this.render.overlayImage(aiImage, text, page.style, theme!) : await this.render.quoteImage(post.quote!, page.style, theme!);
     await this.posts.update(post.id, { mediaFile: post.mediaFile });
     if (old) await this.removeFile(old);
   }
@@ -140,7 +142,7 @@ export class PostsService {
     const to = await this.chatOf(page);
     if (!to) return; // approval happens on the website
     const { chat, lang } = to;
-    const text = `${page.title} · ${post.kind === 'VIDEO' ? '🎬 Reels' : bt(lang, 'preview.post')} #${post.id}\n\n«${post.quote ?? ''}»\n\n${post.caption}`;
+    const text = `${page.title} · ${post.kind === 'VIDEO' ? '🎬 Reels' : bt(lang, 'preview.post')} #${post.num ?? post.id}\n\n«${post.quote ?? ''}»\n\n${post.caption}`;
     const msg = await this.tg.sendMedia(chat, post.kind, mediaUrl(post.mediaFile!), text, [
       [{ text: bt(lang, 'btn.approve'), callback_data: `ap:${post.id}` }, { text: bt(lang, 'btn.other'), callback_data: `rg:${post.id}` }],
       [{ text: bt(lang, 'btn.edit'), callback_data: `ed:${post.id}` }, { text: '❌', callback_data: `rj:${post.id}` }],
@@ -156,6 +158,7 @@ export class PostsService {
         where: [
           { pageId: page.id, status: 'awaiting_approval' },
           { pageId: page.id, status: 'generating' },
+          { pageId: page.id, status: 'frame_approval' },
           { pageId: page.id, status: 'approved', scheduledFor: MoreThan(new Date()) },
         ],
       });
@@ -241,7 +244,7 @@ export class PostsService {
   }
 
   async assignPage(postId: number, pageId: number) {
-    await this.posts.update({ id: postId, status: 'draft' }, { pageId });
+    await this.posts.update({ id: postId, status: 'draft' }, { pageId, num: await this.nextNum(pageId) });
     return this.approve(postId);
   }
 
@@ -311,7 +314,7 @@ export class PostsService {
     for (const p of stuck) {
       await this.posts.update(p.id, { status: 'failed', error: 'interrupted while publishing' });
       const page = await this.pages.findOneByOrFail({ id: p.pageId! });
-      await this.notify(page, (l) => bt(l, 'stuck', { id: p.id }));
+      await this.notify(page, (l) => bt(l, 'stuck', { id: p.num ?? p.id }));
     }
   }
 
@@ -326,8 +329,57 @@ export class PostsService {
     if (!r.affected) return; // rejected or deleted meanwhile
     const post = await this.posts.findOneByOrFail({ id: postId });
     const page = await this.pages.findOneByOrFail({ id: post.pageId! });
+    if (post.render.frameOk) { // the still was approved already: the finished Reels goes straight to the queue
+      const queued = await this.approve(postId);
+      const to = await this.chatOf(page);
+      if (to) await this.tg.sendMedia(to.chat, 'VIDEO', mediaUrl(post.mediaFile!),
+        bt(to.lang, 'reelQueued', { title: page.title, n: post.num ?? post.id, at: formatSlot(queued.scheduledFor!, page.timezone, to.lang) }),
+        [[{ text: bt(to.lang, 'btn.remove'), callback_data: `rj:${post.id}` }]]).catch((e) => this.log.warn(e.message));
+      return;
+    }
     if (page.autoApprove) return this.approve(postId);
     await this.sendPreview(post, page);
+  }
+
+  /** AI Reels: the generator drew the still; the user decides before credits go into the clip. */
+  async askFrame(postId: number) {
+    const r = await this.posts.update({ id: postId, status: 'generating' }, { status: 'frame_approval' });
+    if (!r.affected) return;
+    const post = await this.posts.findOneByOrFail({ id: postId });
+    const page = await this.pages.findOneByOrFail({ id: post.pageId! });
+    const to = await this.chatOf(page);
+    if (!to) return; // decided on the website
+    const msg = await this.tg.sendMedia(to.chat, 'IMAGE', mediaUrl(post.render.aiImage!),
+      bt(to.lang, 'framePreview', { title: page.title, n: post.num ?? post.id, quote: post.quote ?? '' }), [
+        [{ text: bt(to.lang, 'btn.animate'), callback_data: `fv:${post.id}` }, { text: bt(to.lang, 'btn.newFrame'), callback_data: `fn:${post.id}` }],
+        [{ text: '❌', callback_data: `rj:${post.id}` }],
+      ]);
+    await this.posts.update(post.id, { tgMessageId: String(msg.message_id) });
+  }
+
+  /** Still approved: queue the clip. */
+  async approveFrame(postId: number) {
+    const post = await this.posts.findOneByOrFail({ id: postId });
+    if (post.status !== 'frame_approval') throw new BadRequestException('Этот пост уже обработан');
+    await this.posts.update({ id: postId, status: 'frame_approval' }, { status: 'generating', render: { ...post.render, frameOk: true } });
+    await this.jobs.insert({ postId });
+  }
+
+  /** Still rejected: a different scene for the same quote, then a new still. */
+  async newFrame(postId: number) {
+    const post = await this.posts.findOneByOrFail({ id: postId });
+    if (post.status !== 'frame_approval') throw new BadRequestException('Этот пост уже обработан');
+    const page = await this.pages.findOneByOrFail({ id: post.pageId! });
+    const { scene, motion } = await this.gemini.scene(page, post.quote ?? '', post.render.scene);
+    if (post.render.aiImage) await this.removeFile(post.render.aiImage);
+    await this.posts.update({ id: postId, status: 'frame_approval' },
+      { status: 'generating', render: { ...post.render, scene, motion, aiImage: undefined } });
+    await this.jobs.insert({ postId });
+  }
+
+  private async nextNum(pageId: number) {
+    const [{ n }] = await this.db.query(`SELECT COALESCE(MAX(num), 0) + 1 AS n FROM posts WHERE "pageId" = $1`, [pageId]);
+    return Number(n);
   }
 
   private removeFile(file: string) {

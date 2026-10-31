@@ -15,7 +15,7 @@ export const fmtTime = (iso: string | null, tz?: string) => (iso ? (tz ? dayjs(i
 export const fmtNum = (n: number | null | undefined) => (n == null ? '-' : n.toLocaleString(NUMBER_LOCALE[lang()]));
 
 const STATUS_COLORS: Record<PostStatus, string> = {
-  draft: 'gray', generating: 'grape', awaiting_approval: 'yellow', approved: 'blue', publishing: 'cyan', published: 'green', failed: 'red', rejected: 'gray',
+  draft: 'gray', generating: 'grape', frame_approval: 'orange', awaiting_approval: 'yellow', approved: 'blue', publishing: 'cyan', published: 'green', failed: 'red', rejected: 'gray',
 };
 export const STATUS = Object.fromEntries(Object.entries(STATUS_COLORS).map(([k, color]) => [k, {
   color, get label() { return t(`status.${k}` as Parameters<typeof t>[0]); },
@@ -36,12 +36,16 @@ export function freeSlots(page: Page, posts: Post[], n = 12, from = dayjs()) {
     .map((p) => dayjs(p.scheduledFor).valueOf()));
   const out: dayjs.Dayjs[] = [];
   const times = [...page.slots].sort();
+  const at = (day: dayjs.Dayjs, hhmm: string) => { const [h, m] = hhmm.split(':').map(Number); return day.hour(h).minute(m).second(0).millisecond(0); };
   let day = from.tz(page.timezone).startOf('day');
   for (let i = 0; i < 60 && out.length < n; i++, day = day.add(1, 'day')) {
     for (const t of times) {
-      const [h, m] = t.split(':').map(Number);
-      const at = day.hour(h).minute(m).second(0).millisecond(0);
-      if (at.valueOf() > from.valueOf() + 60_000 && !taken.has(at.valueOf())) out.push(at);
+      // "10:00-11:00": the server picks a random minute inside; here the window start stands for it
+      const [a, b] = t.split('-');
+      const start = at(day, a);
+      const end = b ? at(day, b) : start.add(1, 'minute');
+      const busy = [...taken].some((x) => x >= start.valueOf() && x < end.valueOf());
+      if (end.valueOf() > from.valueOf() + 60_000 && !busy) out.push(start);
       if (out.length >= n) break;
     }
   }
@@ -55,7 +59,7 @@ export interface SlotConflict { slot: string; page: string; otherTime: string; s
 
 /** UTC minute of the day for "HH:mm" in a timezone (today's offset). */
 const utcMinute = (hhmm: string, tz: string) => {
-  const [h, m] = hhmm.split(':').map(Number);
+  const [h, m] = hhmm.split('-')[0].split(':').map(Number); // a range counts from its start
   const t = dayjs().tz(tz).hour(h).minute(m).utc();
   return t.hour() * 60 + t.minute();
 };
@@ -65,6 +69,9 @@ const dist = (a: number, b: number) => { const d = Math.abs(a - b) % 1440; retur
  * Times of this rubric that are closer than SLOT_GAP_MIN to a post of another rubric on the same Instagram account,
  * each with the nearest free time (07:00-23:00, 30-minute steps) to switch to.
  */
+/** "10:00" or a range "10:00-11:00" (random minute inside). */
+export const SLOT_RE = /^([01]?\d|2[0-3]):[0-5]\d(-([01]?\d|2[0-3]):[0-5]\d)?$/;
+
 export function slotConflicts(slots: string[], tz: string, others: Pick<Page, 'title' | 'slots' | 'timezone'>[]): SlotConflict[] {
   const taken = others.flatMap((o) => o.slots.map((s) => ({ page: o.title, min: utcMinute(s, o.timezone), local: s, tz: o.timezone })));
   const out: SlotConflict[] = [];
