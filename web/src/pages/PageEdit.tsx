@@ -56,7 +56,21 @@ export default function PageEdit() {
           </Tabs.Panel>
           <Tabs.Panel value="schedule"><ScheduleFields v={v} set={set} advanced account={accounts.data?.find((a) => a.id === v.igAccountId)?.username}
             others={(pages.data ?? []).filter((p) => p.igAccountId === v.igAccountId && p.id !== id)} /></Tabs.Panel>
-          <Tabs.Panel value="style"><StyleFields v={v} set={set} /></Tabs.Panel>
+          <Tabs.Panel value="style"><StyleFields v={v} set={set} logo={{
+            url: page.data.logoUrl, busy: busy === 'logo',
+            onPick: (file) => run('logo', async () => {
+              const form = new FormData();
+              form.append('file', file);
+              const p = await api<Page>(`pages/${id}/brand/logo`, { form });
+              page.setData(p);
+              setV((x) => x && { ...x, style: { ...x.style, logo: p.style.logo } });
+            }),
+            onRemove: () => run('logo', async () => {
+              const p = await api<Page>(`pages/${id}/brand/logo`, { method: 'DELETE' });
+              page.setData(p);
+              setV((x) => x && { ...x, style: { ...x.style, logo: undefined } });
+            }),
+          }} /></Tabs.Panel>
           <Tabs.Panel value="character"><CharacterFields page={{ ...page.data, style: v.style }} onChange={(p) => page.setData(p)} /></Tabs.Panel>
           <Tabs.Panel value="danger">
             <Button color="red" variant="light" leftSection={<IconTrash size={16} />} loading={busy === 'del'} onClick={remove}>{t('edit.delete')}</Button>

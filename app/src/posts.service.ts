@@ -332,9 +332,14 @@ export class PostsService {
       if (page.style.signature !== `@${old}`) continue;
       page.style = { ...page.style, signature: `@${username}` };
       await this.pages.update(page.id, { style: page.style });
-      const queued = await this.posts.find({ where: { pageId: page.id, source: 'ai', status: In(['approved', 'awaiting_approval']) } });
-      for (const post of queued) await this.renderMedia(post, page).catch((e) => this.log.warn(`redraw #${post.id}: ${(e as Error).message}`));
+      await this.redrawQueue(page);
     }
+  }
+
+  /** The page's look changed (brand, signature, font…): redraw its AI posts that wait for approval or publishing. */
+  async redrawQueue(page: Page) {
+    const queued = await this.posts.find({ where: { pageId: page.id, source: 'ai', status: In(['approved', 'awaiting_approval']) } });
+    for (const post of queued) await this.renderMedia(post, page).catch((e) => this.log.warn(`redraw #${post.id}: ${(e as Error).message}`));
   }
 
   /** The post's own media plus the raw AI picture / clip under it. */

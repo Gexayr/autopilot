@@ -3,7 +3,10 @@ import { lang, t } from './i18n';
 
 export interface Me { id: number; name: string; avatarUrl: string | null; email: string | null; telegram: boolean; role: 'admin' | 'user'; status: 'active' | 'pending' | 'blocked'; maxPages: number; language: 'ru' | 'en' | 'hy' | null }
 export interface PublicConfig { botUsername: string | null; googleClientId: string | null; instagramReady: boolean }
-export interface PageStyle { theme?: string; font?: 'serif' | 'sans'; signature?: string; media?: 'card' | 'ai'; text?: boolean }
+export interface PageStyle {
+  theme?: string; font?: 'serif' | 'sans'; signature?: string; media?: 'card' | 'ai'; text?: boolean;
+  logo?: string; logoPos?: 'tl' | 'tr' | 'bl' | 'br'; logoSize?: number; colors?: string[]; stripe?: boolean; footer?: string;
+}
 export interface PageCharacter {
   enabled: boolean; description: string; refs: { file: string; url: string }[];
   refsMode?: 'character' | 'style'; style?: string; world?: string;
@@ -12,7 +15,7 @@ export interface Page {
   id: number; slug: string; title: string; igAccountId: number; niche: string; language: string; style: PageStyle;
   reelsRatio: number; timezone: string; slots: string[]; bufferDays: number; active: boolean; aiEnabled: boolean; autoApprove: boolean;
   account: { id: number; username: string } | null; queued: number; waiting: number; generating: number; nextAt: string | null;
-  character: PageCharacter | null;
+  character: PageCharacter | null; logoUrl: string | null;
   followers: number | null; growth7d: number | null;
 }
 export interface Account {

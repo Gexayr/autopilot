@@ -125,7 +125,7 @@ export class GeneratorService {
     const render = { ...post.render };
     const refs = refsInUse(page.character).map((f) => join(config.mediaDir, f));
     const aspect: Aspect = post.kind === 'VIDEO' ? '9:16' : '4:5';
-    const prompt = imagePrompt(page.character, render.scene ?? post.quote ?? '', refs.length > 0);
+    const prompt = imagePrompt(page.character, render.scene ?? post.quote ?? '', refs.length > 0, page.style.colors);
 
     if (!render.aiImage) {
       const img = await this.firstThatWorks('image', steps, [

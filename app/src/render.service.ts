@@ -66,6 +66,47 @@ export class RenderService {
     return new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render().asPng();
   }
 
+  /**
+   * Brand layer (transparent PNG) over any finished frame: logo in a corner, the bottom line, the stripe
+   * in brand colors. `top` / `bottom` keep it out of the areas Instagram covers with its own UI on Reels.
+   * Null when the page has no brand set.
+   */
+  private async brand(style: PageStyle, width: number, height: number, top: number, bottom: number): Promise<Buffer | null> {
+    const logoFile = style.logo ? join(config.mediaDir, style.logo) : null;
+    const colors = (style.colors ?? []).filter((c) => /^#[0-9a-f]{6}$/i.test(c));
+    const stripe = style.stripe !== false && colors.length > 0;
+    if (!logoFile && !style.footer && !stripe) return null;
+    const kids: unknown[] = [];
+    if (logoFile) {
+      const meta = await sharp(logoFile).metadata().catch(() => null);
+      if (meta?.width && meta.height) {
+        const w = Math.round((width * Math.min(35, Math.max(8, style.logoSize ?? 18))) / 100);
+        const hgt = Math.round((w * meta.height) / meta.width);
+        const pos = style.logoPos ?? 'tr';
+        const m = 44;
+        kids.push({ type: 'img', props: {
+          src: `data:image/png;base64,${(await sharp(logoFile).png().toBuffer()).toString('base64')}`, width: w, height: hgt,
+          style: {
+            position: 'absolute', width: w, height: hgt,
+            ...(pos[0] === 't' ? { top: top + m } : { bottom: bottom + m + (style.footer ? 70 : 0) }),
+            ...(pos[1] === 'l' ? { left: m } : { right: m }),
+          },
+        } });
+      }
+    }
+    if (style.footer) kids.push(h('div', {
+      position: 'absolute', left: 0, right: 0, bottom: bottom + (stripe ? 8 : 0), height: 64, display: 'flex',
+      alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)', color: '#ffffff',
+      fontFamily: 'Sans, Armenian', fontWeight: 700, fontSize: 30, letterSpacing: 1,
+    }, style.footer));
+    if (stripe) kids.push(h('div', {
+      position: 'absolute', left: 0, right: 0, bottom, height: 8, display: 'flex',
+      backgroundImage: colors.length > 1 ? `linear-gradient(90deg, ${colors.join(', ')})` : undefined, backgroundColor: colors[0],
+    }));
+    const svg = await satori(h('div', { width, height, display: 'flex', position: 'relative' }, kids) as any, { width, height, fonts: loadFonts() });
+    return new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render().asPng();
+  }
+
   /** Transparent layer with the quote over a dark fade at the bottom, to put on top of AI media. */
   private async overlay(quote: string, style: PageStyle, theme: string, width: number, height: number, bottom: number): Promise<Buffer> {
     const t = THEMES[theme] ?? THEMES.midnight;
@@ -90,9 +131,12 @@ export class RenderService {
   /** AI picture (any size) cropped to 1080×1350, with the quote on top unless `quote` is null (pure picture). */
   async overlayImage(aiImage: string, quote: string | null, style: PageStyle, theme: string): Promise<string> {
     const file = randomName('jpg');
-    const img = sharp(join(config.mediaDir, aiImage)).resize(1080, 1350, { fit: 'cover' });
-    if (quote) img.composite([{ input: await this.overlay(quote, style, theme, 1080, 1350, 96) }]);
-    await img.jpeg({ quality: 90, mozjpeg: true }).toFile(join(config.mediaDir, file));
+    const layers = [
+      quote && await this.overlay(quote, style, theme, 1080, 1350, style.footer ? 160 : 96),
+      await this.brand(style, 1080, 1350, 0, 0),
+    ].filter((x): x is Buffer => !!x).map((input) => ({ input }));
+    await sharp(join(config.mediaDir, aiImage)).resize(1080, 1350, { fit: 'cover' })
+      .composite(layers).jpeg({ quality: 90, mozjpeg: true }).toFile(join(config.mediaDir, file));
     return file;
   }
 
@@ -103,25 +147,32 @@ export class RenderService {
   async overlayVideo(aiVideo: string, quote: string | null, style: PageStyle, theme: string): Promise<string> {
     const file = randomName('mp4');
     const layer = join(config.mediaDir, `.${file}.png`);
-    if (quote) await writeFile(layer, await this.overlay(quote, style, theme, 1080, 1920, 330));
+    const brandFile = join(config.mediaDir, `.${file}.brand.png`);
+    if (quote) await writeFile(layer, await this.overlay(quote, style, theme, 1080, 1920, style.footer ? 400 : 330));
+    const brand = await this.brand(style, 1080, 1920, 150, 300); // Reels: Instagram's header on top, caption and buttons below
+    if (brand) await writeFile(brandFile, brand);
     // the clip itself is made at 360-480p (that's what costs credits); scaling it up here is free and keeps the text sharp
-    const scale = '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1';
+    const inputs = [['-i', join(config.mediaDir, aiVideo)], ...(quote ? [['-loop', '1', '-i', layer]] : []), ...(brand ? [['-loop', '1', '-i', brandFile]] : [])];
+    let graph = '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,setsar=1[v0]';
+    let last = 'v0';
+    let n = 1;
+    if (quote) { graph += `;[${n}:v]format=rgba,fade=t=in:st=0.3:d=0.7:alpha=1[q];[${last}][q]overlay=0:0:shortest=1[v1]`; last = 'v1'; n++; }
+    if (brand) { graph += `;[${last}][${n}:v]overlay=0:0:shortest=1[v2]`; last = 'v2'; n++; }
+    graph += `;[${last}]format=yuv420p[v]`;
     try {
       await run('ffmpeg', [
         '-y', '-loglevel', 'error',
-        '-i', join(config.mediaDir, aiVideo),
-        ...(quote ? ['-loop', '1', '-i', layer] : []),
+        ...inputs.flat(),
         '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
-        '-filter_complex', quote
-          ? `${scale}[bg];[1:v]format=rgba,fade=t=in:st=0.3:d=0.7:alpha=1[ov];[bg][ov]overlay=0:0:shortest=1,format=yuv420p[v]`
-          : `${scale},format=yuv420p[v]`,
-        '-map', '[v]', '-map', `${quote ? 2 : 1}:a`, '-shortest',
+        '-filter_complex', graph,
+        '-map', '[v]', '-map', `${n}:a`, '-shortest',
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-profile:v', 'high',
         '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart',
         join(config.mediaDir, file),
       ], { timeout: 300_000 });
     } finally {
       await rm(layer, { force: true });
+      await rm(brandFile, { force: true });
     }
     return file;
   }
@@ -130,7 +181,8 @@ export class RenderService {
   async quoteImage(quote: string, style: PageStyle, theme: string): Promise<string> {
     const file = randomName('jpg');
     const png = await this.card(quote, style, theme, 1080, 1350);
-    await sharp(png).jpeg({ quality: 90, mozjpeg: true }).toFile(join(config.mediaDir, file));
+    const brand = await this.brand(style, 1080, 1350, 0, 0);
+    await sharp(png).composite(brand ? [{ input: brand }] : []).jpeg({ quality: 90, mozjpeg: true }).toFile(join(config.mediaDir, file));
     return file;
   }
 
@@ -141,20 +193,25 @@ export class RenderService {
     const seconds = Math.min(15, Math.max(8, Math.round(6 + quote.length / 20)));
     const frames = seconds * 30;
     await writeFile(frame, await this.card(quote, style, theme, 1080, 1920));
+    const brandFile = join(config.mediaDir, `.${file}.brand.png`);
+    const brand = await this.brand(style, 1080, 1920, 150, 300);
+    if (brand) await writeFile(brandFile, brand);
+    const zoom = `[0:v]scale=1620:2880,zoompan=z='1+0.07*on/${frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1080x1920:fps=30,fade=t=in:st=0:d=0.6`;
     try {
       await run('ffmpeg', [
         '-y', '-loglevel', 'error',
         '-loop', '1', '-i', frame,
+        ...(brand ? ['-loop', '1', '-i', brandFile] : []), // the logo stays put while the card zooms
         '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
-        '-filter_complex',
-        `[0:v]scale=1620:2880,zoompan=z='1+0.07*on/${frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1080x1920:fps=30,fade=t=in:st=0:d=0.6,format=yuv420p[v]`,
-        '-map', '[v]', '-map', '1:a', '-t', String(seconds),
+        '-filter_complex', brand ? `${zoom}[z];[z][1:v]overlay=0:0,format=yuv420p[v]` : `${zoom},format=yuv420p[v]`,
+        '-map', '[v]', '-map', `${brand ? 2 : 1}:a`, '-t', String(seconds),
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-profile:v', 'high',
         '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart',
         join(config.mediaDir, file),
       ], { timeout: 300_000 });
     } finally {
       await rm(frame, { force: true });
+      await rm(brandFile, { force: true });
     }
     return file;
   }

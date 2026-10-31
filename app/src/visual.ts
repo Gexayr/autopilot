@@ -21,8 +21,9 @@ export const refsInUse = (v?: PageCharacter | null) =>
   !v?.refs.length ? [] : v.refsMode === 'style' || v.enabled ? v.refs : [];
 
 /** What Gemini has to respect when it invents a scene: the world, the style, the recurring character. */
-export function sceneRules(v?: PageCharacter | null): string[] {
+export function sceneRules(v?: PageCharacter | null, colors?: string[]): string[] {
   return [
+    colors?.length ? `Brand colors that must dominate the palette of every scene: ${colors.join(', ')}.` : '',
     v?.world?.trim() ? `Every scene takes place in this world (keep its look, places and mood): ${v.world.trim()}` : '',
     `Visual style of the scene: ${styleText(v)}.`,
     v?.enabled && v.description ? `A recurring character must be the main subject, doing something that fits the post: ${v.description}` : '',
@@ -30,8 +31,9 @@ export function sceneRules(v?: PageCharacter | null): string[] {
 }
 
 /** Prompt for the image model. */
-export function imagePrompt(v: PageCharacter | null | undefined, scene: string, withRefs: boolean): string {
+export function imagePrompt(v: PageCharacter | null | undefined, scene: string, withRefs: boolean, colors?: string[]): string {
   return [
+    colors?.length ? `Color palette built on the brand colors ${colors.join(', ')}.` : '',
     withRefs && v?.refsMode === 'style'
       ? 'Match the world, art style, colors and atmosphere of the reference images (they show the setting, do not copy them literally).'
       : withRefs ? 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face.' : '',

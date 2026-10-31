@@ -18,6 +18,13 @@ export interface PageStyle {
   signature?: string; // small text at the bottom, e.g. @handle
   media?: 'card' | 'ai'; // quote card (default) or AI image / video under the quote
   text?: boolean; // AI media: put the quote on top (default) or publish the pure picture / clip
+  // brand: drawn by our renderer on every picture and clip (AI models distort logos, so they never draw it)
+  logo?: string; // PNG in MEDIA_DIR, set only by the upload endpoint
+  logoPos?: 'tl' | 'tr' | 'bl' | 'br';
+  logoSize?: number; // % of the width, 8-35
+  colors?: string[]; // up to 3 hex brand colors: AI scenes lean on them, the stripe uses them
+  stripe?: boolean; // thin stripe in the brand colors along the bottom edge
+  footer?: string; // short line at the bottom, e.g. a site or "18+"
 }
 
 /** World, picture style and an optional recurring character for AI scenes (column `character`, see visual.ts). */

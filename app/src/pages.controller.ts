@@ -74,6 +74,13 @@ function styleFields(s: any): PageStyle {
   if (s?.signature) style.signature = String(s.signature).slice(0, 40);
   if (s?.media) style.media = s.media === 'ai' ? 'ai' : 'card';
   if (s?.text === false) style.text = false; // AI media without the quote on it (default: with)
+  // brand; `logo` only passes for the preview, the page keeps the one its upload endpoint stored
+  if (typeof s?.logo === 'string' && LOGO_FILE.test(s.logo)) style.logo = s.logo;
+  if (['tl', 'tr', 'bl', 'br'].includes(s?.logoPos)) style.logoPos = s.logoPos;
+  if (s?.logoSize !== undefined) style.logoSize = Math.min(35, Math.max(8, Math.round(Number(s.logoSize) || 18)));
+  if (Array.isArray(s?.colors)) style.colors = s.colors.map(String).filter((c: string) => /^#[0-9a-f]{6}$/i.test(c)).slice(0, 3);
+  if (s?.stripe === false) style.stripe = false;
+  if (s?.footer) style.footer = String(s.footer).trim().slice(0, 40);
   return style;
 }
 
@@ -88,6 +95,9 @@ function characterFields(c: any, refs: string[]): PageCharacter {
     world: String(c?.world ?? '').trim().slice(0, 2000),
   };
 }
+
+const LOGO_FILE = /^logo-[0-9a-f]{32}\.png$/;
+const BRAND_KEYS = ['logo', 'logoPos', 'logoSize', 'colors', 'stripe', 'footer', 'signature', 'theme', 'font', 'text'] as const;
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'page';
 
@@ -166,6 +176,7 @@ export class PagesController {
     const acc = await this.accounts.findOneBy({ id: Number(body.igAccountId), ownerId: user.id });
     if (!acc) throw new BadRequestException('Выберите подключённый аккаунт Instagram');
     const fields = pageFields(body, false);
+    if (fields.style) delete fields.style.logo; // uploaded after creation
     if (body.character) fields.character = characterFields(body.character, []);
     let slug = slugify(acc.username);
     for (let i = 2; await this.pages.existsBy({ ownerId: user.id, slug }); i++) slug = `${slugify(acc.username)}-${i}`;
@@ -190,8 +201,41 @@ export class PagesController {
     }
     // pictures come and go through the endpoints below
     if (body.character !== undefined) fields.character = characterFields(body.character, page.character?.refs ?? []);
+    if (fields.style) fields.style.logo = page.style.logo; // only the upload endpoint changes it
     await this.pages.update(page.id, fields);
-    return this.view(await this.pages.findOneByOrFail({ id }));
+    const updated = await this.pages.findOneByOrFail({ id });
+    // the look of the pictures changed: redraw what waits in the queue
+    if (fields.style && BRAND_KEYS.some((k) => JSON.stringify(page.style[k]) !== JSON.stringify(updated.style[k])))
+      void this.posts.redrawQueue(updated);
+    return this.view(updated);
+  }
+
+  /** Brand logo: a PNG (transparent background works best), stored at most 800 px wide. */
+  @HttpPost('pages/:id/brand/logo')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, f, cb) => cb(/^image\/(jpeg|png|webp)$/.test(f.mimetype) ? null : new BadRequestException('Нужен JPEG/PNG/WebP'), /^image\/(jpeg|png|webp)$/.test(f.mimetype)),
+  }))
+  async uploadLogo(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
+    const page = await this.owned(user, id);
+    if (!file) throw new BadRequestException('Файл не получен');
+    const name = `logo-${randomName('png')}`;
+    await sharp(file.buffer).rotate().trim({ threshold: 1 }).resize(800, 800, { fit: 'inside', withoutEnlargement: true }).png().toFile(join(config.mediaDir, name));
+    if (page.style.logo) await rm(join(config.mediaDir, page.style.logo), { force: true });
+    const updated = { ...page, style: { ...page.style, logo: name } };
+    await this.pages.update(page.id, { style: updated.style });
+    void this.posts.redrawQueue(updated);
+    return this.view(updated);
+  }
+
+  @Delete('pages/:id/brand/logo')
+  async removeLogo(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number) {
+    const page = await this.owned(user, id);
+    if (page.style.logo) await rm(join(config.mediaDir, page.style.logo), { force: true });
+    const { logo: _, ...style } = page.style;
+    await this.pages.update(page.id, { style });
+    void this.posts.redrawQueue({ ...page, style });
+    return this.view({ ...page, style });
   }
 
   /** "It's a game about …" -> a detailed world description to edit and save (nothing is stored here). */
@@ -256,7 +300,7 @@ export class PagesController {
     const unpublished = await this.postRepo.find({ where: { pageId: In(ids), status: Not(In(['published', 'publishing'])) } });
     for (const p of unpublished) await this.posts.reject(p.id); // removes media files
     await this.pages.delete(ids);
-    for (const f of pages.flatMap((p) => p.character?.refs ?? [])) await rm(join(config.mediaDir, f), { force: true });
+    for (const f of pages.flatMap((p) => [...(p.character?.refs ?? []), ...(p.style.logo ? [p.style.logo] : [])])) await rm(join(config.mediaDir, f), { force: true });
   }
 
   @HttpPost('pages/:id/generate')
@@ -342,6 +386,7 @@ export class PagesController {
     return {
       ...p, account: acc ? { id: acc.id, username: acc.username } : null,
       queued, waiting, generating, nextAt: next?.scheduledFor ?? null,
+      logoUrl: p.style.logo ? mediaUrl(p.style.logo) : null,
       character: p.character && { ...p.character, refs: p.character.refs.map((f) => ({ file: f, url: mediaUrl(f) })) },
       followers: stats[0]?.followers ?? null,
       growth7d: stats.length > 1 ? stats[0].followers - stats[stats.length - 1].followers : null,

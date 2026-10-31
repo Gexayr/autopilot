@@ -45,7 +45,7 @@ export class GeminiService {
       `- "hashtags": 8-15 relevant hashtags without the # sign, mixing popular and niche ones, in ${lang} and English.`,
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a 5-second video made from that image: what moves and how the camera moves (e.g. slow push-in, gentle pan).`,
-      ...sceneRules(page.character),
+      ...sceneRules(page.character, page.style.colors),
       `Never use em dashes (—) or en dashes (–) anywhere; use commas, colons or periods instead.`,
       hint ? `Extra instruction from the editor: ${hint}` : '',
       recentQuotes.length ? `Do NOT repeat or paraphrase any of these recent quotes:\n${recentQuotes.map((q) => `- ${q}`).join('\n')}` : '',
@@ -65,7 +65,7 @@ export class GeminiService {
       `An Instagram post (topic: ${page.niche}) carries this thought: "${quote}".`,
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a short video made from that image: what moves and how the camera moves.`,
-      ...sceneRules(page.character),
+      ...sceneRules(page.character, page.style.colors),
       previous ? `The previous scene was rejected, make a clearly different one (other place, action and mood):\n${previous}` : '',
     ].filter(Boolean).join('\n');
     return JSON.parse(await this.withRetries(prompt, SCENE_SCHEMA));

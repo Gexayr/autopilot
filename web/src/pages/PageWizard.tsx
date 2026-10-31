@@ -19,6 +19,7 @@ export default function PageWizard() {
   const [world, setWorld] = useState<WorldDraft>(emptyWorld);
   // pictures picked before the page exists: uploaded right after it is created
   const [refs, setRefs] = useState<{ key: string; url: string; file: File }[]>([]);
+  const [logo, setLogo] = useState<{ url: string; file: File } | null>(null);
   const { busy, run } = useAction();
   const nav = useNavigate();
   const LAST = 4;
@@ -41,15 +42,20 @@ export default function PageWizard() {
   const save = async (start: boolean) => {
     const page = await api<Page>('pages', { body: {
       ...v, igAccountId: accountId, ...(worldSet && { character: world }),
-      ...(start ? { generateNow: refs.length === 0 } : { active: false, generateNow: false }),
+      ...(start ? { generateNow: refs.length === 0 && !logo } : { active: false, generateNow: false }),
     } });
+    if (logo) {
+      const form = new FormData();
+      form.append('file', logo.file);
+      await api(`pages/${page.id}/brand/logo`, { form });
+    }
     for (const r of refs) {
       const form = new FormData();
       form.append('file', r.file);
       await api(`pages/${page.id}/character/refs`, { form });
     }
     // with pictures the first posts start only now, so they already use them
-    if (start && refs.length) for (let i = 0; i < 3; i++) await api(`pages/${page.id}/generate`, { body: {} });
+    if (start && (refs.length || logo)) for (let i = 0; i < 3; i++) await api(`pages/${page.id}/generate`, { body: {} });
     return page;
   };
   const expandWorld = () => run('world', async () => {
@@ -100,7 +106,9 @@ export default function PageWizard() {
         </Stepper.Step>
         <Stepper.Step label={t('wizard.step.topic')}><Card withBorder mt="md"><TopicFields v={v} set={set} /></Card></Stepper.Step>
         <Stepper.Step label={t('wizard.step.schedule')}><Card withBorder mt="md"><ScheduleFields v={v} set={set} account={account?.username} others={(pages.data ?? []).filter((p) => p.igAccountId === accountId)} /></Card></Stepper.Step>
-        <Stepper.Step label={t('wizard.step.style')}><Card withBorder mt="md"><StyleFields v={v} set={set} /></Card></Stepper.Step>
+        <Stepper.Step label={t('wizard.step.style')}><Card withBorder mt="md"><StyleFields v={v} set={set} logo={{
+          url: logo?.url ?? null, onPick: (file) => setLogo({ url: URL.createObjectURL(file), file }), onRemove: () => setLogo(null),
+        }} /></Card></Stepper.Step>
         <Stepper.Step label={t('wizard.step.world')}>
           <Card withBorder mt="md">
             {v.style.media !== 'ai' && <Text size="sm" c="dimmed" mb="sm">{t('wizard.worldCardMode')}</Text>}

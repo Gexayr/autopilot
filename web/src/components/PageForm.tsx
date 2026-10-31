@@ -1,5 +1,6 @@
-import { Alert, Box, Button, Chip, Group, Image, Loader, NumberInput, SegmentedControl, Select, SimpleGrid, Slider, Stack, Switch, TagsInput, Text, Textarea, TextInput, UnstyledButton } from '@mantine/core';
+import { Alert, Box, Button, Chip, CloseButton, ColorInput, FileButton, Group, Image, Loader, NumberInput, SegmentedControl, Select, SimpleGrid, Slider, Stack, Switch, TagsInput, Text, TextInput, Textarea, UnstyledButton } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
+import { IconPhotoUp, IconPlus } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { api, Page, PageStyle, Theme } from '../api';
 import { useLoad } from '../hooks';
@@ -96,7 +97,10 @@ export function ScheduleFields({ v, set, advanced, others = [], account }: { v: 
   );
 }
 
-export function StyleFields({ v, set }: { v: PageDraft; set: Set }) {
+/** Logo control: uploads at once on an existing page; the wizard keeps the file until the page is created. */
+export interface LogoControl { url: string | null; onPick: (file: File) => void; onRemove: () => void; busy?: boolean }
+
+export function StyleFields({ v, set, logo }: { v: PageDraft; set: Set; logo?: LogoControl }) {
   const themes = useLoad(() => api<Theme[]>('themes'));
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -141,6 +145,7 @@ export function StyleFields({ v, set }: { v: PageDraft; set: Set }) {
             value={v.style.font ?? 'serif'} onChange={(f) => setStyle({ font: f as 'serif' | 'sans' })} />
         </div>
         <TextInput label={t('form.signature')} placeholder={t('form.signaturePh')} maxLength={40} value={v.style.signature ?? ''} onChange={(e) => setStyle({ signature: e.currentTarget.value })} />
+        <BrandFields style={v.style} setStyle={setStyle} logo={logo} />
         <div>
           <Text size="sm" fw={500} mb={4}>{t('form.media')}</Text>
           <SegmentedControl fullWidth value={v.style.media ?? 'card'} onChange={(m) => setStyle({ media: m as 'card' | 'ai' })}
@@ -158,5 +163,58 @@ export function StyleFields({ v, set }: { v: PageDraft; set: Set }) {
         <Text size="xs" c="dimmed" ta="center" mt={4}>{t(v.style.media === 'ai' ? 'form.exampleAi' : 'form.example')}</Text>
       </Box>
     </SimpleGrid>
+  );
+}
+
+const POSITIONS = [{ value: 'tl', label: '↖' }, { value: 'tr', label: '↗' }, { value: 'bl', label: '↙' }, { value: 'br', label: '↘' }];
+
+/** Brand: our renderer puts the logo, the bottom line and a stripe in brand colors on every picture and clip. */
+function BrandFields({ style, setStyle, logo }: { style: PageStyle; setStyle: (patch: Partial<PageStyle>) => void; logo?: LogoControl }) {
+  const colors = style.colors ?? [];
+  const setColor = (i: number, c: string) => setStyle({ colors: colors.map((x, j) => (j === i ? c : x)) });
+  return (
+    <Box p="sm" style={{ border: '1px solid var(--mantine-color-default-border)', borderRadius: 8 }}>
+      <Text fw={600} size="sm">{t('brand.title')}</Text>
+      <Text size="xs" c="dimmed" mb="sm">{t('brand.hint')}</Text>
+      <Stack gap="sm">
+        {logo && (
+          <Group gap="sm" align="center">
+            {logo.url
+              ? <Box p={6} style={{ background: 'repeating-conic-gradient(#8883 0 25%, transparent 0 50%) 0 0 / 16px 16px', borderRadius: 6 }}><Image src={logo.url} h={48} w="auto" fit="contain" alt="" /></Box>
+              : <Text size="sm" c="dimmed">{t('brand.noLogo')}</Text>}
+            <FileButton onChange={(f) => f && logo.onPick(f)} accept="image/png,image/webp,image/jpeg">
+              {(props) => <Button {...props} size="xs" variant="light" leftSection={<IconPhotoUp size={14} />} loading={logo.busy}>{t(logo.url ? 'brand.replaceLogo' : 'brand.uploadLogo')}</Button>}
+            </FileButton>
+            {logo.url && <Button size="xs" variant="subtle" color="red" onClick={logo.onRemove}>{t('common.delete')}</Button>}
+          </Group>
+        )}
+        {(logo?.url || style.logo) && (
+          <Group grow align="flex-end">
+            <div>
+              <Text size="xs" mb={4}>{t('brand.position')}</Text>
+              <SegmentedControl size="xs" fullWidth value={style.logoPos ?? 'tr'} onChange={(x) => setStyle({ logoPos: x as PageStyle['logoPos'] })} data={POSITIONS} />
+            </div>
+            <div>
+              <Text size="xs" mb={4}>{t('brand.size', { n: style.logoSize ?? 18 })}</Text>
+              <Slider min={8} max={35} value={style.logoSize ?? 18} onChange={(x) => setStyle({ logoSize: x })} label={null} />
+            </div>
+          </Group>
+        )}
+        <div>
+          <Text size="xs" mb={4}>{t('brand.colors')}</Text>
+          <Group gap="xs">
+            {colors.map((c, i) => (
+              <Group key={i} gap={2} wrap="nowrap">
+                <ColorInput size="xs" w={120} value={c} onChange={(x) => setColor(i, x)} format="hex" />
+                <CloseButton size="sm" onClick={() => setStyle({ colors: colors.filter((_, j) => j !== i) })} />
+              </Group>
+            ))}
+            {colors.length < 3 && <Button size="xs" variant="subtle" leftSection={<IconPlus size={14} />} onClick={() => setStyle({ colors: [...colors, '#7c3aed'] })}>{t('brand.addColor')}</Button>}
+          </Group>
+        </div>
+        {colors.length > 0 && <Switch size="sm" checked={style.stripe !== false} onChange={(e) => setStyle({ stripe: e.currentTarget.checked })} label={t('brand.stripe')} />}
+        <TextInput size="sm" label={t('brand.footer')} placeholder={t('brand.footerPh')} maxLength={40} value={style.footer ?? ''} onChange={(e) => setStyle({ footer: e.currentTarget.value })} />
+      </Stack>
+    </Box>
   );
 }
