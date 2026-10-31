@@ -19,6 +19,7 @@ export interface PageStyle {
   media?: 'card' | 'ai'; // quote card (default) or AI image / video under the quote
   text?: boolean; // AI media: put the quote on top (default) or publish the pure picture / clip
   // brand: drawn by our renderer on every picture and clip (AI models distort logos, so they never draw it)
+  brand?: boolean; // the switch; off keeps the settings below but nothing is drawn (unset = on when anything is set)
   logo?: string; // PNG in MEDIA_DIR, set only by the upload endpoint
   logoPos?: 'tl' | 'tr' | 'bl' | 'br';
   logoSize?: number; // % of the width, 8-35

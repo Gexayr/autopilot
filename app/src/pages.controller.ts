@@ -75,6 +75,7 @@ function styleFields(s: any): PageStyle {
   if (s?.media) style.media = s.media === 'ai' ? 'ai' : 'card';
   if (s?.text === false) style.text = false; // AI media without the quote on it (default: with)
   // brand; `logo` only passes for the preview, the page keeps the one its upload endpoint stored
+  if (typeof s?.brand === 'boolean') style.brand = s.brand;
   if (typeof s?.logo === 'string' && LOGO_FILE.test(s.logo)) style.logo = s.logo;
   if (['tl', 'tr', 'bl', 'br'].includes(s?.logoPos)) style.logoPos = s.logoPos;
   if (s?.logoSize !== undefined) style.logoSize = Math.min(35, Math.max(8, Math.round(Number(s.logoSize) || 18)));
@@ -98,7 +99,7 @@ function characterFields(c: any, refs: string[]): PageCharacter {
 
 const AI_SAMPLE = join(__dirname, '..', 'assets', 'ai-sample.jpg');
 const LOGO_FILE = /^logo-[0-9a-f]{32}\.png$/;
-const BRAND_KEYS = ['logo', 'logoPos', 'logoSize', 'colors', 'stripe', 'footer', 'signature', 'theme', 'font', 'text'] as const;
+const BRAND_KEYS = ['brand', 'logo', 'logoPos', 'logoSize', 'colors', 'stripe', 'footer', 'signature', 'theme', 'font', 'text'] as const;
 
 const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'page';
 

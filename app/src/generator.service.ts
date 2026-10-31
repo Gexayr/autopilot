@@ -13,7 +13,7 @@ import { randomName } from './crypto.util';
 import { Kv, MediaJob, Page, Post, User } from './entities';
 import { Aspect, DashScope, MediaError, PixVerse } from './media.providers';
 import { PostsService } from './posts.service';
-import { imagePrompt, refsInUse } from './visual';
+import { brandColors, imagePrompt, refsInUse } from './visual';
 import { TelegramApi } from './telegram.api';
 
 const runFile = promisify(execFile);
@@ -125,7 +125,7 @@ export class GeneratorService {
     const render = { ...post.render };
     const refs = refsInUse(page.character).map((f) => join(config.mediaDir, f));
     const aspect: Aspect = post.kind === 'VIDEO' ? '9:16' : '4:5';
-    const prompt = imagePrompt(page.character, render.scene ?? post.quote ?? '', refs.length > 0, page.style.colors);
+    const prompt = imagePrompt(page.character, render.scene ?? post.quote ?? '', refs.length > 0, brandColors(page.style));
 
     if (!render.aiImage) {
       const img = await this.firstThatWorks('image', steps, [

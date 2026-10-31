@@ -10,6 +10,7 @@ import sharp from 'sharp';
 import { config } from './config';
 import { randomName } from './crypto.util';
 import { PageStyle } from './entities';
+import { brandOn } from './visual';
 
 const run = promisify(execFile);
 
@@ -72,6 +73,7 @@ export class RenderService {
    * Null when the page has no brand set.
    */
   private async brand(style: PageStyle, width: number, height: number, top: number, bottom: number): Promise<Buffer | null> {
+    if (!brandOn(style)) return null;
     const logoFile = style.logo ? join(config.mediaDir, style.logo) : null;
     const colors = (style.colors ?? []).filter((c) => /^#[0-9a-f]{6}$/i.test(c));
     const stripe = style.stripe !== false && colors.length > 0;
@@ -132,7 +134,7 @@ export class RenderService {
   async overlayImage(aiImage: string, quote: string | null, style: PageStyle, theme: string): Promise<string> {
     const file = randomName('jpg');
     const layers = [
-      quote && await this.overlay(quote, style, theme, 1080, 1350, style.footer ? 160 : 96),
+      quote && await this.overlay(quote, style, theme, 1080, 1350, brandOn(style) && style.footer ? 160 : 96),
       await this.brand(style, 1080, 1350, 0, 0),
     ].filter((x): x is Buffer => !!x).map((input) => ({ input }));
     await sharp(join(config.mediaDir, aiImage)).resize(1080, 1350, { fit: 'cover' })
@@ -148,7 +150,7 @@ export class RenderService {
     const file = randomName('mp4');
     const layer = join(config.mediaDir, `.${file}.png`);
     const brandFile = join(config.mediaDir, `.${file}.brand.png`);
-    if (quote) await writeFile(layer, await this.overlay(quote, style, theme, 1080, 1920, style.footer ? 400 : 330));
+    if (quote) await writeFile(layer, await this.overlay(quote, style, theme, 1080, 1920, brandOn(style) && style.footer ? 400 : 330));
     const brand = await this.brand(style, 1080, 1920, 150, 300); // Reels: Instagram's header on top, caption and buttons below
     if (brand) await writeFile(brandFile, brand);
     // the clip itself is made at 360-480p (that's what costs credits); scaling it up here is free and keeps the text sharp

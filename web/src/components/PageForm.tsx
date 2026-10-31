@@ -175,11 +175,13 @@ const POSITIONS = [{ value: 'tl', label: '↖' }, { value: 'tr', label: '↗' },
 function BrandFields({ style, setStyle, logo }: { style: PageStyle; setStyle: (patch: Partial<PageStyle>) => void; logo?: LogoControl }) {
   const colors = style.colors ?? [];
   const setColor = (i: number, c: string) => setStyle({ colors: colors.map((x, j) => (j === i ? c : x)) });
+  // same rule as the server: unset = on when the page already has a brand
+  const on = style.brand ?? !!(style.logo || style.footer || style.colors?.length);
   return (
     <Box p="sm" style={{ border: '1px solid var(--mantine-color-default-border)', borderRadius: 8 }}>
-      <Text fw={600} size="sm">{t('brand.title')}</Text>
-      <Text size="xs" c="dimmed" mb="sm">{t('brand.hint')}</Text>
-      <Stack gap="sm">
+      <Switch checked={on} onChange={(e) => setStyle({ brand: e.currentTarget.checked })}
+        label={<Text fw={600} size="sm">{t('brand.title')}</Text>} description={t('brand.hint')} />
+      {on && <Stack gap="sm" mt="sm">
         {logo && (
           <Group gap="sm" align="center">
             {logo.url
@@ -217,7 +219,7 @@ function BrandFields({ style, setStyle, logo }: { style: PageStyle; setStyle: (p
         </div>
         {colors.length > 0 && <Switch size="sm" checked={style.stripe !== false} onChange={(e) => setStyle({ stripe: e.currentTarget.checked })} label={t('brand.stripe')} />}
         <TextInput size="sm" label={t('brand.footer')} placeholder={t('brand.footerPh')} maxLength={40} value={style.footer ?? ''} onChange={(e) => setStyle({ footer: e.currentTarget.value })} />
-      </Stack>
+      </Stack>}
     </Box>
   );
 }

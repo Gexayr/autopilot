@@ -5,7 +5,7 @@ export interface Me { id: number; name: string; avatarUrl: string | null; email:
 export interface PublicConfig { botUsername: string | null; googleClientId: string | null; instagramReady: boolean }
 export interface PageStyle {
   theme?: string; font?: 'serif' | 'sans'; signature?: string; media?: 'card' | 'ai'; text?: boolean;
-  logo?: string; logoPos?: 'tl' | 'tr' | 'bl' | 'br'; logoSize?: number; colors?: string[]; stripe?: boolean; footer?: string;
+  brand?: boolean; logo?: string; logoPos?: 'tl' | 'tr' | 'bl' | 'br'; logoSize?: number; colors?: string[]; stripe?: boolean; footer?: string;
 }
 export interface PageCharacter {
   enabled: boolean; description: string; refs: { file: string; url: string }[];

@@ -1,4 +1,10 @@
-import type { PageCharacter } from './entities';
+import type { PageCharacter, PageStyle } from './entities';
+
+/** The brand switch: explicit, or on for pages that set a brand before the switch existed. */
+export const brandOn = (s: PageStyle) => s.brand ?? !!(s.logo || s.footer || s.colors?.length);
+
+/** Brand colors that steer AI scenes (none while the brand is off). */
+export const brandColors = (s: PageStyle) => (brandOn(s) ? s.colors ?? [] : []);
 
 /** Picture styles for AI scenes (keys are stored in pages.character.style; anything else is the user's own text). */
 export const VISUAL_STYLES: Record<string, string> = {
