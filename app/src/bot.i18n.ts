@@ -106,7 +106,7 @@ const ru = {
   'cmd.gen': 'Сделать пост прямо сейчас',
   'cmd.stats': 'Статистика',
   'cmd.language': 'Язык бота',
-  'cmd.start': 'Помощь',
+  'cmd.help': 'Все команды и помощь',
 };
 
 type Key = keyof typeof ru;
@@ -209,7 +209,7 @@ You can do all of this (including connecting Instagram and creating series) on t
   'cmd.gen': 'Make a post right now',
   'cmd.stats': 'Statistics',
   'cmd.language': 'Bot language',
-  'cmd.start': 'Help',
+  'cmd.help': 'All commands and help',
 };
 
 const hy: Record<Key, string> = {
@@ -310,7 +310,7 @@ const hy: Record<Key, string> = {
   'cmd.gen': 'Պատրաստել գրառում հենց հիմա',
   'cmd.stats': 'Վիճակագրություն',
   'cmd.language': 'Բոտի լեզուն',
-  'cmd.start': 'Օգնություն',
+  'cmd.help': 'Բոլոր հրամանները և օգնություն',
 };
 
 const DICTS: Record<Lang, Record<Key, string>> = { ru, en, hy };
@@ -329,4 +329,4 @@ export function bt(lang: Lang, key: Key, vars?: Record<string, string | number>)
 
 /** Bot command menu per Telegram app language (setMyCommands with language_code). */
 export const botCommands = (lang: Lang) =>
-  (['start', 'pages', 'queue', 'now', 'gen', 'stats', 'language'] as const).map((c) => ({ command: c, description: bt(lang, `cmd.${c}` as Key) }));
+  (['help', 'pages', 'queue', 'now', 'gen', 'stats', 'language'] as const).map((c) => ({ command: c, description: bt(lang, `cmd.${c}` as Key) }));

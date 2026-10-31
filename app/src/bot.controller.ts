@@ -93,7 +93,8 @@ export class BotController {
     const [cmd, ...args] = text.split(/\s+/);
     const withPage = (fn: (page: Page, rest: string[]) => Promise<unknown>) => this.withPage(user, lang, args, fn);
     switch (cmd.replace(/@.*$/, '').toLowerCase()) {
-      case '/start': return help();
+      case '/start':
+      case '/help': return help();
       case '/language': return reply(bt(lang, 'chooseLang'), [BOT_LANGS.map((l) => ({ text: l.label, callback_data: `lg:${l.value}` }))]);
       case '/pages': return reply(await this.posts.pagesText(user.id, lang));
       case '/stats': return reply(await this.posts.statsText(user.id, lang));
