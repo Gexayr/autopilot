@@ -51,6 +51,10 @@ export class PostsService {
     return this.pages.find({ where: { active: true, ...(ownerId && { ownerId }) }, order: { id: 'ASC' } });
   }
 
+  accountOf(id: number) {
+    return this.ig.account(id).catch(() => null);
+  }
+
   findPage(slugOrId: string, ownerId: number) {
     return this.pages.findOne({ where: /^\d+$/.test(slugOrId) ? { id: +slugOrId, ownerId } : { slug: slugOrId, ownerId } });
   }

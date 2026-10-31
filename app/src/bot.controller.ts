@@ -14,6 +14,8 @@ import { formatSlot } from './slots';
 import { TelegramApi } from './telegram.api';
 
 
+type PageCmd = 'queue' | 'now' | 'del' | 'gen' | 'pause' | 'resume';
+
 @Controller('tg')
 export class BotController {
   private readonly log = new Logger(BotController.name);
@@ -99,44 +101,67 @@ export class BotController {
       }
       return help();
     }
-    const [cmd, ...args] = text.split(/\s+/);
-    const withPage = (fn: (page: Page, rest: string[]) => Promise<unknown>) => this.withPage(user, lang, args, fn);
-    switch (cmd.replace(/@.*$/, '').toLowerCase()) {
+    const [rawCmd, ...args] = text.split(/\s+/);
+    const cmd = rawCmd.replace(/@.*$/, '').toLowerCase();
+    switch (cmd) {
       case '/start':
       case '/help': return help();
       case '/language': return reply(bt(lang, 'chooseLang'), [BOT_LANGS.map((l) => ({ text: l.label, callback_data: `lg:${l.value}` }))]);
       case '/pages': return reply(await this.posts.pagesText(user.id, lang));
       case '/stats': return reply(await this.posts.statsText(user.id, lang));
-      case '/queue': return withPage(async (p) => reply(await this.posts.queueText(p, lang)));
-      case '/now': return withPage(async (p) => {
-        const next = await this.posts.publishNow(p);
-        return reply(next ? bt(lang, 'publishing') : bt(lang, 'queueEmpty', { title: p.title }));
-      });
-      case '/del': return withPage(async (p, rest) => {
-        const n = parseInt(rest[0], 10);
-        const post = Number.isFinite(n) ? await this.posts.deleteQueued(p, n) : null;
-        return reply(post ? `${bt(lang, 'deleted', { n })}\n\n${await this.posts.queueText(p, lang)}` : bt(lang, 'delHint'));
-      });
-      case '/gen': return withPage(async (p, rest) => {
-        await reply(bt(lang, 'generating'));
-        await this.posts.generateForUser(p, rest.join(' ') || undefined);
-      });
-      case '/pause':
-      case '/resume': return withPage(async (p) => {
-        await this.pages.update(p.id, { active: cmd === '/resume' });
-        return reply(bt(lang, cmd === '/resume' ? 'resumed' : 'paused', { title: p.title }));
-      });
+      case '/queue': case '/now': case '/del': case '/gen': case '/pause': case '/resume':
+        return this.withPage(user, lang, cmd.slice(1) as PageCmd, args);
       default: return help();
     }
   }
 
-  /** First argument may be a page slug; with a single active page it can be omitted. */
-  private async withPage(user: User, lang: Lang, args: string[], fn: (page: Page, rest: string[]) => Promise<unknown>) {
+  /**
+   * A command about one page: the first argument may be its slug; with one page it is implied;
+   * otherwise the bot answers with a button per page (the rest of the command waits in kv).
+   */
+  private async withPage(user: User, lang: Lang, cmd: PageCmd, args: string[]) {
+    const chat = Number(user.telegramId);
     const byArg = args[0] ? await this.posts.findPage(args[0], user.id) : null;
-    if (byArg) return fn(byArg, args.slice(1));
-    const active = await this.posts.activePages(user.id);
-    if (active.length === 1) return fn(active[0], args);
-    return this.tg.send(Number(user.telegramId), bt(lang, 'choosePage', { list: active.map((p) => p.slug).join(', ') || bt(lang, 'noPagesShort') }));
+    if (byArg) return this.runPageCmd(user, lang, cmd, byArg, args.slice(1));
+    // /gen and /resume also make sense for paused pages
+    const pages = cmd === 'gen' || cmd === 'resume'
+      ? await this.pages.find({ where: { ownerId: user.id }, order: { id: 'ASC' } })
+      : await this.posts.activePages(user.id);
+    if (pages.length === 1) return this.runPageCmd(user, lang, cmd, pages[0], args);
+    if (!pages.length) return this.tg.send(chat, bt(lang, 'noPages'));
+    await this.kv.save({ key: `cmd:args:${chat}`, value: args });
+    const names = await this.accountNames(pages);
+    return this.tg.send(chat, bt(lang, 'whichContent'),
+      pages.map((p) => [{ text: `${p.active ? '' : '⏸ '}${p.title} · @${names.get(p.igAccountId) ?? '?'}`, callback_data: `pc:${cmd}:${p.id}` }]));
+  }
+
+  private async accountNames(pages: Page[]) {
+    const out = new Map<number, string>();
+    for (const id of new Set(pages.map((p) => p.igAccountId))) out.set(id, (await this.posts.accountOf(id))?.username ?? '');
+    return out;
+  }
+
+  private async runPageCmd(user: User, lang: Lang, cmd: PageCmd, p: Page, rest: string[]) {
+    const reply = (t: string) => this.tg.send(Number(user.telegramId), t);
+    switch (cmd) {
+      case 'queue': return reply(await this.posts.queueText(p, lang));
+      case 'now': {
+        const next = await this.posts.publishNow(p);
+        return reply(next ? bt(lang, 'publishing') : bt(lang, 'queueEmpty', { title: p.title }));
+      }
+      case 'del': {
+        const n = parseInt(rest[0], 10);
+        const post = Number.isFinite(n) ? await this.posts.deleteQueued(p, n) : null;
+        return reply(post ? `${bt(lang, 'deleted', { n })}\n\n${await this.posts.queueText(p, lang)}` : bt(lang, 'delHint'));
+      }
+      case 'gen':
+        await reply(bt(lang, 'generating'));
+        return this.posts.generateForUser(p, rest.join(' ') || undefined);
+      case 'pause':
+      case 'resume':
+        await this.pages.update(p.id, { active: cmd === 'resume' });
+        return reply(bt(lang, cmd === 'resume' ? 'resumed' : 'paused', { title: p.title }));
+    }
   }
 
   private async onUpload(m: any, user: User, lang: Lang) {
@@ -169,6 +194,13 @@ export class BotController {
     const msgId = q.message?.message_id;
     await this.tg.answer(q.id);
     switch (action) {
+      case 'pc': { // a page picked from the buttons of /gen, /queue, …
+        const page = await this.posts.findPage(b, user.id);
+        if (!page) return;
+        const saved = await this.kv.findOneBy({ key: `cmd:args:${chat}` });
+        await this.tg.clearKeyboard(chat, msgId, `✓ ${page.title}`);
+        return this.runPageCmd(user, lang, a as PageCmd, page, (saved?.value as string[]) ?? []);
+      }
       case 'lg': {
         if (!isLang(a)) return;
         await this.auth.setLanguage(user, a);
