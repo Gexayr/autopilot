@@ -1,3 +1,4 @@
+import { config } from './config';
 import type { PageCharacter, PageStyle } from './entities';
 
 /** The brand switch: explicit, or on for pages that set a brand before the switch existed. */
@@ -31,8 +32,6 @@ export function sceneRules(v?: PageCharacter | null, colors?: string[]): string[
   return [
     colors?.length ? `Brand colors that must dominate the palette of every scene: ${colors.join(', ')}.` : '',
     v?.world?.trim() ? `Every scene takes place in this world (keep its look, places and mood): ${v.world.trim()}` : '',
-    // only a rule for people who are there anyway: landscapes and objects without people stay as they are
-    v?.people?.trim() ? `Scenes without people are fine. If the scene does show people, they are ${v.people.trim()}: say so explicitly in the scene description.` : '',
     `Visual style of the scene: ${styleText(v)}.`,
     v?.enabled && v.description ? `A recurring character must be the main subject, doing something that fits the post: ${v.description}` : '',
   ].filter(Boolean);
@@ -53,8 +52,9 @@ export function imagePrompt(v: PageCharacter | null | undefined, scene: string, 
     v?.enabled && v.description ? `Character: ${v.description}.` : '',
     v?.world?.trim() ? `World: ${v.world.trim()}` : '',
     `Scene: ${scene}`,
-    // appearance only when the scene has people in it (a landscape stays a landscape)
-    v?.people?.trim() && hasPeople(scene) ? `People in this image: ${v.people.trim()}.` : '',
+    // image models pick faces on their own (Qwen leans Asian): the owner wants European / Caucasian people,
+    // added only when the scene has people in it, so a landscape stays a landscape
+    hasPeople(scene) ? `People in this image: ${config.peopleAppearance}.` : '',
     `Style: ${styleText(v)}. No readable text, letters, captions, logos or watermarks anywhere in the image.`,
   ].filter(Boolean).join('\n');
 }

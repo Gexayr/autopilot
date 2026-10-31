@@ -36,7 +36,6 @@ export interface PageCharacter {
   refsMode?: 'character' | 'style'; // the pictures show the character, or the world / art style to match
   style?: string; // key of VISUAL_STYLES or the user's own words
   world?: string; // the setting every scene happens in, e.g. a game universe
-  people?: string; // how people in the scenes look, e.g. "European appearance" (image models have their own default)
 }
 
 /** Raw AI media of a post, kept so the quote can be re-rendered on top after an edit. */

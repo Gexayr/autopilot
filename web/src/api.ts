@@ -9,7 +9,7 @@ export interface PageStyle {
 }
 export interface PageCharacter {
   enabled: boolean; description: string; refs: { file: string; url: string }[];
-  refsMode?: 'character' | 'style'; style?: string; world?: string; people?: string;
+  refsMode?: 'character' | 'style'; style?: string; world?: string;
 }
 export interface Page {
   id: number; slug: string; title: string; igAccountId: number; niche: string; language: string; style: PageStyle;

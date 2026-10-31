@@ -33,6 +33,7 @@ export const config = {
   },
   pexelsKey: env('PEXELS_API_KEY'),
   // AI media (generator container): Alibaba Model Studio (Qwen image, Wan video) and PixVerse CLI accounts
+  peopleAppearance: env('PEOPLE_APPEARANCE', 'people of European (Caucasian) appearance'),
   qwenTextModel: env('QWEN_TEXT_MODEL', 'qwen-plus'), // text fallback when Gemini is out of quota
   dashscope: { apiKey: env('DASHSCOPE_API_KEY'), baseUrl: env('DASHSCOPE_BASE_URL', 'https://dashscope-intl.aliyuncs.com/api/v1').replace(/\/$/, '') },
   pixverse: {

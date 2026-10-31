@@ -14,10 +14,9 @@ export interface WorldDraft {
   enabled: boolean;
   description: string;
   refsMode: 'character' | 'style';
-  people: string;
 }
 
-export const emptyWorld = (): WorldDraft => ({ style: 'photo', world: '', enabled: false, description: '', refsMode: 'style', people: '' });
+export const emptyWorld = (): WorldDraft => ({ style: 'photo', world: '', enabled: false, description: '', refsMode: 'style' });
 
 const presetOf = (s: string) => (!s ? 'photo' : (STYLES as readonly string[]).includes(s) ? s : 'custom');
 
@@ -51,9 +50,6 @@ export function WorldEditor({ v, set, refs, onAddRef, onRemoveRef, onExpand, bus
         <Button mt="xs" size="xs" variant="light" leftSection={<IconSparkles size={14} />} disabled={v.world.trim().length < 3}
           loading={busy === 'world'} onClick={onExpand}>{t('world.expand')}</Button>
       </div>
-
-      <TextInput label={t('world.people')} description={t('world.peopleHint')} placeholder={t('world.peoplePh')} maxLength={200}
-        value={v.people} onChange={(e) => set({ people: e.currentTarget.value })} />
 
       <Divider />
       <Switch checked={v.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} label={t('char.enabled')} description={t('char.optional')} />
