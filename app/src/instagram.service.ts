@@ -50,8 +50,10 @@ export class InstagramService {
   }
 
   /** Register (or update) an account from a long-lived token; returns it. */
-  async upsertFromToken(token: string, ownerId: number, expiresInSec?: number) {
+  /** `allowed` may refuse the account (e.g. not the one the user asked the admin for) before anything is saved. */
+  async upsertFromToken(token: string, ownerId: number, expiresInSec?: number, allowed?: (username: string) => Promise<void>) {
     const me = await this.call<{ user_id: string; username: string }>(token, 'GET', 'me', { fields: 'user_id,username' });
+    await allowed?.(me.username);
     let acc = await this.accounts.findOneBy({ igUserId: me.user_id });
     if (acc && acc.ownerId !== ownerId) throw new IgError(`@${me.username} уже подключён другим пользователем`);
     acc ??= this.accounts.create({ igUserId: me.user_id, ownerId });
@@ -99,7 +101,7 @@ export class InstagramService {
     return `${config.publicUrl}/ig/callback`;
   }
 
-  async exchangeCode(code: string, ownerId: number) {
+  async exchangeCode(code: string, ownerId: number, allowed?: (username: string) => Promise<void>) {
     const res = await fetch('https://api.instagram.com/oauth/access_token', {
       method: 'POST',
       body: new URLSearchParams({
@@ -114,7 +116,7 @@ export class InstagramService {
     if (!res.ok || !short.access_token) throw new IgError(short.error_message ?? JSON.stringify(short));
     const long = await this.call<{ access_token: string; expires_in: number }>(short.access_token, 'GET',
       'https://graph.instagram.com/access_token', { grant_type: 'ig_exchange_token', client_secret: config.instagram.appSecret });
-    return this.upsertFromToken(long.access_token, ownerId, long.expires_in);
+    return this.upsertFromToken(long.access_token, ownerId, long.expires_in, allowed);
   }
 
   // --- stats ---

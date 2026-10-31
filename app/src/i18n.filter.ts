@@ -40,6 +40,13 @@ const MESSAGES: [RegExp, string, string][] = [
   [/^Нужен JPEG\/PNG\/WebP или MP4\/MOV$/, 'JPEG/PNG/WebP or MP4/MOV only', 'Անհրաժեշտ է JPEG/PNG/WebP կամ MP4/MOV'],
   [/^Файл не получен$/, 'No file received', 'Ֆայլը չի ստացվել'],
   [/^Выберите контент$/, 'Choose the content', 'Ընտրեք թեմա'],
+  [/^Вы вошли в @(\S+), а одобрен (.+)\. Выйдите из Instagram и войдите в нужный аккаунт\.$/,
+    'You logged in to @$1, but the approved account is $2. Log out of Instagram and log in to the right account.',
+    'Դուք մուտք եք գործել @$1, իսկ հաստատված է $2։ Դուրս եկեք Instagram-ից և մուտք գործեք ճիշտ հաշվով։'],
+  [/^Вы вошли в @(\S+), но заявки на этот аккаунт нет\. Сначала запросите доступ для @\S+\.$/,
+    'You logged in to @$1, but there is no request for this account. Request access for @$1 first.',
+    'Դուք մուտք եք գործել @$1, բայց այս հաշվի համար հայտ չկա։ Նախ հայցեք մուտք @$1-ի համար։'],
+  [/^Ссылка устарела, нажмите «Подключить Instagram» ещё раз\.$/, 'The link has expired, click “Connect Instagram” again.', 'Հղումը հնացել է, կրկին սեղմեք «Միացնել Instagram-ը»։'],
   [/^@(\S+) уже подключён другим пользователем$/, '@$1 is already connected by another user', '@$1-ն արդեն միացված է այլ օգտատիրոջ կողմից'],
 ];
 

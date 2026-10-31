@@ -66,6 +66,16 @@ export class AccessService {
     return req;
   }
 
+  /** A regular user may connect only an account the admin added as a tester for them. */
+  async assertAllowed(user: User, username: string) {
+    if (user.role === 'admin') return;
+    const mine = await this.requests.find({ where: { userId: user.id, status: In(['invited', 'connected']) } });
+    if (mine.some((r) => r.username === username.toLowerCase())) return;
+    throw new BadRequestException(mine.length
+      ? `Вы вошли в @${username}, а одобрен ${mine.map((r) => '@' + r.username).join(', ')}. Выйдите из Instagram и войдите в нужный аккаунт.`
+      : `Вы вошли в @${username}, но заявки на этот аккаунт нет. Сначала запросите доступ для @${username}.`);
+  }
+
   /** Called after a successful Instagram login. */
   async markConnected(userId: number, username: string) {
     await this.requests.update({ userId, username: username.toLowerCase(), status: In([...OPEN, 'rejected']) }, { status: 'connected' });
