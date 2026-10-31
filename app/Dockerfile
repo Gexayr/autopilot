@@ -26,6 +26,8 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=web /web/dist ./web
+# sample AI background for the style preview
+COPY app/assets ./assets
 COPY app/package*.json ./
 USER node
 EXPOSE 3000

@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Response } from 'express';
 import { DateTime } from 'luxon';
-import { readFile, rm } from 'node:fs/promises';
+import { copyFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { In, MoreThan, MoreThanOrEqual, Not, IsNull, Repository } from 'typeorm';
 import { AuthGuard, CurrentUser } from './auth.guard';
@@ -96,6 +96,7 @@ function characterFields(c: any, refs: string[]): PageCharacter {
   };
 }
 
+const AI_SAMPLE = join(__dirname, '..', 'assets', 'ai-sample.jpg');
 const LOGO_FILE = /^logo-[0-9a-f]{32}\.png$/;
 const BRAND_KEYS = ['logo', 'logoPos', 'logoSize', 'colors', 'stripe', 'footer', 'signature', 'theme', 'font', 'text'] as const;
 
@@ -317,7 +318,17 @@ export class PagesController {
   async stylePreview(@Body() body: any, @Res() res: Response) {
     const style = styleFields(body.style ?? {});
     const quote = String(body.quote || SAMPLE[body.language] || SAMPLE.ru).slice(0, 200);
-    const file = await this.render.quoteImage(quote, style, pickTheme(style, Math.floor(Math.random() * 1000)));
+    const theme = pickTheme(style, Math.floor(Math.random() * 1000));
+    let file: string;
+    if (style.media === 'ai') { // a sample AI picture: shows the text switch and the brand on a real scene
+      const bg = `.${randomName('jpg')}`;
+      await copyFile(AI_SAMPLE, join(config.mediaDir, bg));
+      try {
+        file = await this.render.overlayImage(bg, style.text === false ? null : quote, style, theme);
+      } finally {
+        await rm(join(config.mediaDir, bg), { force: true });
+      }
+    } else file = await this.render.quoteImage(quote, style, theme);
     const path = join(config.mediaDir, file);
     const buf = await readFile(path);
     await rm(path, { force: true });

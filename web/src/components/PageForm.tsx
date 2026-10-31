@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Chip, CloseButton, ColorInput, FileButton, Group, Image, Loader, NumberInput, SegmentedControl, Select, SimpleGrid, Slider, Stack, Switch, TagsInput, Text, TextInput, Textarea, UnstyledButton } from '@mantine/core';
+import { Alert, Badge, Box, Button, Chip, CloseButton, ColorInput, FileButton, Group, Image, Loader, NumberInput, SegmentedControl, Select, SimpleGrid, Slider, Stack, Switch, TagsInput, Text, TextInput, Textarea, UnstyledButton } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconPhotoUp, IconPlus } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
@@ -158,7 +158,10 @@ export function StyleFields({ v, set, logo }: { v: PageDraft; set: Set; logo?: L
         )}
       </Stack>
       <Box pos="relative" maw={320} mx="auto" w="100%">
-        <Box className="media-box" style={{ aspectRatio: '4 / 5' }}>{preview && <Image src={preview} alt={t('form.example')} />}</Box>
+        <Box className="media-box" style={{ aspectRatio: '4 / 5' }}>
+          {preview && <Image src={preview} alt={t('form.example')} />}
+          {v.style.media === 'ai' && <Badge pos="absolute" top={10} left={10} variant="filled" color="violet">✨ AI</Badge>}
+        </Box>
         {loading && <Loader size="sm" pos="absolute" top={10} right={10} />}
         <Text size="xs" c="dimmed" ta="center" mt={4}>{t(v.style.media === 'ai' ? 'form.exampleAi' : 'form.example')}</Text>
       </Box>

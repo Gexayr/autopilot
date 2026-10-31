@@ -31,7 +31,9 @@ export default function PageWizard() {
   }, [accounts.data, accountId]);
   const account = accounts.data?.find((a) => a.id === accountId);
   useEffect(() => {
-    if (account && !v.style.signature) set({ style: { ...v.style, signature: `@${account.username}` } });
+    // the signature follows the chosen account unless the user wrote their own
+    const own = v.style.signature && !(accounts.data ?? []).some((a) => v.style.signature === `@${a.username}`);
+    if (account && !own) set({ style: { ...v.style, signature: `@${account.username}` } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.id]);
 

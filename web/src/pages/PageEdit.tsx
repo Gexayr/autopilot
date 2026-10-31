@@ -51,7 +51,13 @@ export default function PageEdit() {
             <Stack>
               <TopicFields v={v} set={set} />
               <Select label={t('edit.account')} data={(accounts.data ?? []).map((a) => ({ value: String(a.id), label: `@${a.username}` }))}
-                value={String(v.igAccountId)} onChange={(x) => x && setV({ ...v, igAccountId: Number(x) })} allowDeselect={false} />
+                value={String(v.igAccountId)} allowDeselect={false} onChange={(x) => {
+                  if (!x) return;
+                  const next = accounts.data?.find((a) => a.id === Number(x));
+                  // the signature follows the account unless the user wrote their own
+                  const auto = !v.style.signature || (accounts.data ?? []).some((a) => v.style.signature === `@${a.username}`);
+                  setV({ ...v, igAccountId: Number(x), ...(next && auto && { style: { ...v.style, signature: `@${next.username}` } }) });
+                }} />
             </Stack>
           </Tabs.Panel>
           <Tabs.Panel value="schedule"><ScheduleFields v={v} set={set} advanced account={accounts.data?.find((a) => a.id === v.igAccountId)?.username}
