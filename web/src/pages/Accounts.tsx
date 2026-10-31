@@ -1,6 +1,6 @@
-import { Alert, Anchor, Avatar, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Avatar, Badge, Button, Card, Group, List, Loader, Modal, Stack, Text, Title } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import { Account, api } from '../api';
@@ -31,13 +31,40 @@ export default function Accounts() {
     if (connected && back) nav(back, { replace: true });
   }, [params, setParams, nav]);
 
-  const remove = (a: Account) => confirm(t('accounts.disconnectConfirm', { name: a.username })) && run(`d${a.id}`, async () => {
+  const [removing, setRemoving] = useState<Account | null>(null);
+  const remove = (a: Account) => run(`d${a.id}`, async () => {
     await api(`accounts/${a.id}`, { method: 'DELETE' });
+    setRemoving(null);
     await list.reload();
   }, t('accounts.disconnected'));
 
   return (
     <Stack>
+      <Modal opened={!!removing} onClose={() => setRemoving(null)} centered
+        title={<Text fw={600}>{t('accounts.disconnectConfirm', { name: removing?.username ?? '' })}</Text>}>
+        {removing && (
+          <Stack gap="md">
+            {removing.pages.length > 0 ? (
+              <Alert color="red" variant="light">
+                <Text size="sm" mb={6}>{t('accounts.willDelete')}</Text>
+                <List size="sm" spacing={2}>
+                  {removing.pages.map((p) => <List.Item key={p.id}><b>{p.title}</b></List.Item>)}
+                </List>
+                {removing.queued > 0 && <Text size="sm" mt={6}>{tn('accounts.willDeletePosts', removing.queued)}</Text>}
+              </Alert>
+            ) : (
+              <Text size="sm">{t('accounts.nothingToDelete')}</Text>
+            )}
+            <Text size="xs" c="dimmed">{t('accounts.publishedStay')}</Text>
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setRemoving(null)}>{t('common.cancel')}</Button>
+              <Button color="red" leftSection={<IconTrash size={16} />} loading={busy === `d${removing.id}`} onClick={() => remove(removing)}>
+                {removing.pages.length ? t('accounts.disconnectAndDelete') : t('accounts.disconnect')}
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
       <Title order={2}>{t('accounts.title')}</Title>
       <Card withBorder><InstagramConnect hasAccounts={!!list.data?.length} /></Card>
       {list.loading && <Loader />}
@@ -59,11 +86,7 @@ export default function Accounts() {
                   {a.lastError && <Text size="xs" c="red" mt={4}>{a.lastError}</Text>}
                 </div>
               </Group>
-              <Stack gap={4} align="flex-start">
-                <Button variant="subtle" color="red" size="xs" leftSection={<IconTrash size={14} />} loading={busy === `d${a.id}`}
-                  disabled={a.pages.length > 0} onClick={() => remove(a)}>{t('accounts.disconnect')}</Button>
-                {a.pages.length > 0 && <Text size="xs" c="dimmed">{t('accounts.disconnectHint')}</Text>}
-              </Stack>
+              <Button variant="subtle" color="red" size="xs" leftSection={<IconTrash size={14} />} onClick={() => setRemoving(a)}>{t('accounts.disconnect')}</Button>
             </Group>
           </Card>
         );

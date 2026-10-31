@@ -96,10 +96,11 @@ export class PagesController {
     return Promise.all(list.map(async (a) => {
       const p = await this.ig.profile(a).catch((e) => ({ error: (e as Error).message }));
       const pages = await this.pages.find({ where: { igAccountId: a.id }, select: ['id', 'title'] });
+      const queued = pages.length ? await this.postRepo.countBy({ pageId: In(pages.map((x) => x.id)), status: In(['approved', 'awaiting_approval']) }) : 0;
       return {
         id: a.id, username: a.username, tokenExpiresAt: a.tokenExpiresAt, lastError: a.lastError ?? (p as any).error ?? null,
         followers: (p as any).followers_count ?? null, mediaCount: (p as any).media_count ?? null,
-        avatarUrl: (p as any).profile_picture_url ?? null, pages,
+        avatarUrl: (p as any).profile_picture_url ?? null, pages, queued,
       };
     }));
   }
@@ -116,7 +117,8 @@ export class PagesController {
   async deleteAccount(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number) {
     const acc = await this.accounts.findOneBy({ id, ownerId: user.id });
     if (!acc) throw new NotFoundException();
-    if (await this.pages.countBy({ igAccountId: id })) throw new BadRequestException('Сначала удалите контент этого аккаунта');
+    // its content goes too (the web asks for confirmation and names it)
+    await this.removePages(await this.pages.findBy({ igAccountId: id }));
     await this.accounts.delete(id);
     return { ok: true };
   }
@@ -167,12 +169,18 @@ export class PagesController {
 
   @Delete('pages/:id')
   async deletePage(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number) {
-    const page = await this.owned(user, id);
-    const queued = await this.postRepo.find({ where: { pageId: id, status: Not(In(['published', 'publishing'])) } });
-    for (const p of queued) await this.posts.reject(p.id); // removes media files
-    if (await this.postRepo.countBy({ pageId: id, status: 'publishing' })) throw new BadRequestException('Идёт публикация, попробуйте через минуту');
-    await this.pages.delete(page.id);
+    await this.removePages([await this.owned(user, id)]);
     return { ok: true };
+  }
+
+  /** Unpublished posts (and their media files) go with the pages; published ones stay on Instagram. */
+  private async removePages(pages: Page[]) {
+    if (!pages.length) return;
+    const ids = pages.map((p) => p.id);
+    if (await this.postRepo.countBy({ pageId: In(ids), status: 'publishing' })) throw new BadRequestException('Идёт публикация, попробуйте через минуту');
+    const unpublished = await this.postRepo.find({ where: { pageId: In(ids), status: Not(In(['published', 'publishing'])) } });
+    for (const p of unpublished) await this.posts.reject(p.id); // removes media files
+    await this.pages.delete(ids);
   }
 
   @HttpPost('pages/:id/generate')

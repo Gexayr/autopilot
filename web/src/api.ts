@@ -12,7 +12,7 @@ export interface Page {
 }
 export interface Account {
   id: number; username: string; tokenExpiresAt: string | null; lastError: string | null; followers: number | null;
-  mediaCount: number | null; avatarUrl: string | null; pages: { id: number; title: string }[];
+  mediaCount: number | null; avatarUrl: string | null; pages: { id: number; title: string }[]; queued: number;
 }
 export type PostStatus = 'draft' | 'awaiting_approval' | 'approved' | 'publishing' | 'published' | 'failed' | 'rejected';
 export interface Post {
