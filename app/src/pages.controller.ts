@@ -277,7 +277,11 @@ export class PagesController {
     const character: PageCharacter = page.character ?? { enabled: false, description: '', refs: [] };
     if (character.refs.length >= 4) throw new BadRequestException('Не больше 4 картинок');
     const name = randomName('jpg');
-    await sharp(file.buffer).rotate().resize(1536, 1536, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 92 }).toFile(join(config.mediaDir, name));
+    // image models refuse pictures under 240 px on a side (Wan): small crops are scaled up to 768 px
+    const img = sharp(await sharp(file.buffer).rotate().toBuffer());
+    const { width = 0, height = 0 } = await img.metadata();
+    const k = Math.min(1536 / Math.max(width, height), Math.max(1, 768 / Math.min(width, height)));
+    await img.resize(Math.round(width * k), Math.round(height * k), { kernel: 'lanczos3' }).jpeg({ quality: 92 }).toFile(join(config.mediaDir, name));
     character.names = [...character.refs.map((_, i) => character.names?.[i] ?? ''), refName(who)];
     character.refs = [...character.refs, name];
     await this.pages.update(page.id, { character });
