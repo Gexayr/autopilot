@@ -76,7 +76,8 @@ export function imagePrompt(v: PageCharacter | null | undefined, scene: string, 
       : v?.refsMode === 'style' ? 'Match the world, art style, colors and atmosphere of the reference images (they show the setting, do not copy them literally).'
       : named ? `${refs.map((r, i) => `Reference image ${i + 1} shows ${r.name}.`).join(' ')} Draw each of them exactly as in their reference image: face, hair, beard, clothes, proportions. They are different characters: never mix their features. Use the pictures only for the characters, not for the background or composition.`
       : 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face.',
-    v?.enabled && v.description && !castOf(v).length ? `Character: ${v.description}.` : '',
+    // named characters: their description only when this picture has them, or the model draws them into empty scenes
+    v?.enabled && v.description && (named || !castOf(v).length) ? `Character: ${v.description}.` : '',
     // no world text here: Gemini already put it into the scene, and repeating it drags every picture back to
     // the same place (a Venice scene came out half London)
     `Scene: ${scene}`,
