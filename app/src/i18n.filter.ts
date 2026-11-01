@@ -40,7 +40,7 @@ const MESSAGES: [RegExp, string, string][] = [
   [/^Нужен JPEG\/PNG\/WebP или MP4\/MOV$/, 'JPEG/PNG/WebP or MP4/MOV only', 'Անհրաժեշտ է JPEG/PNG/WebP կամ MP4/MOV'],
   [/^Файл не получен$/, 'No file received', 'Ֆայլը չի ստացվել'],
   [/^Нужен JPEG\/PNG\/WebP$/, 'JPEG, PNG or WebP only', 'Անհրաժեշտ է JPEG, PNG կամ WebP'],
-  [/^Не больше 4 картинок$/, 'At most 4 pictures', 'Առավելագույնը 4 նկար'],
+  [/^Не больше 5 картинок$/, 'At most 5 pictures', 'Առավելագույնը 5 նկար'],
   [/^Опишите мир хотя бы парой слов$/, 'Describe the world in at least a few words', 'Նկարագրեք աշխարհը գոնե մի քանի բառով'],
   [/^Напишите хотя бы пару слов$/, 'Write at least a few words', 'Գրեք գոնե մի քանի բառ'],
   [/^Сегодня уже отправлено много сообщений, попробуйте завтра$/, 'Too many messages today, please try again tomorrow', 'Այսօր արդեն շատ հաղորդագրություններ են ուղարկվել, փորձեք վաղը'],

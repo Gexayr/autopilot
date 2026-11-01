@@ -22,7 +22,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Providers in the order they are tried; the first that works wins. */
 const IMAGE_MODELS = ['qwen-image-2.0', 'wan2.7-image'];
 /**
- * Pages with named characters: Wan keeps each one's look and takes 4 pictures, Qwen mixes them up (hats, hair).
+ * Pages with named characters: Wan keeps each one's look and takes 5 pictures, Qwen mixes them up (hats, hair).
  * Wan draws their scenes without characters too, so the whole feed has one look.
  */
 const imageModels = (page: Page) => (castOf(page.character).length ? [...IMAGE_MODELS].reverse() : IMAGE_MODELS);

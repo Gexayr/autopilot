@@ -47,7 +47,7 @@ export class DashScope {
 
   /** `refs` (local files) keep a character the same across scenes. */
   async image(model: string, prompt: string, refs: string[], aspect: Aspect): Promise<Buffer> {
-    if (model.startsWith('qwen')) refs = refs.slice(0, 3); // Qwen takes at most 3 pictures, Wan takes 4
+    if (model.startsWith('qwen')) refs = refs.slice(0, 3); // Qwen takes at most 3 pictures, Wan takes 5
     const content = [...await Promise.all(refs.map(async (r) => ({ image: await dataUri(r) }))), { text: prompt }];
     const j = await this.call('/services/aigc/multimodal-generation/generation', {
       method: 'POST',

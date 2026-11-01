@@ -265,7 +265,7 @@ export class PagesController {
     return { world: await this.gemini.world(text, language) };
   }
 
-  /** Reference picture of the page's character (up to 4), normalised to a JPEG of at most 1536 px. */
+  /** Reference picture of the page's character (up to 5), normalised to a JPEG of at most 1536 px. */
   @HttpPost('pages/:id/character/refs')
   @UseInterceptors(FileInterceptor('file', {
     storage: memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 },
@@ -275,7 +275,7 @@ export class PagesController {
     const page = await this.owned(user, id);
     if (!file) throw new BadRequestException('Файл не получен');
     const character: PageCharacter = page.character ?? { enabled: false, description: '', refs: [] };
-    if (character.refs.length >= 4) throw new BadRequestException('Не больше 4 картинок');
+    if (character.refs.length >= 5) throw new BadRequestException('Не больше 5 картинок');
     const name = randomName('jpg');
     // image models refuse pictures under 240 px on a side (Wan): small crops are scaled up to 768 px
     const img = sharp(await sharp(file.buffer).rotate().toBuffer());

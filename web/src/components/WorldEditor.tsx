@@ -3,7 +3,7 @@ import { IconPhotoPlus, IconSparkles, IconX } from '@tabler/icons-react';
 import { useState } from 'react';
 import { Key, t } from '../i18n';
 
-export const MAX_REFS = 4;
+export const MAX_REFS = 5;
 // keys match VISUAL_STYLES in app/src/visual.ts; anything else is the user's own words
 export const STYLES = ['photo', 'cinematic', 'game', 'anime', 'cartoon', 'fantasy', 'pixel'] as const;
 
