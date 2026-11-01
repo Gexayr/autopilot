@@ -41,11 +41,19 @@ const inScene = (scene: string, name: string) =>
 
 /**
  * Pictures for this scene with the name of who is on each. With named pictures only the characters the scene
- * mentions go to the model, so the hero, his friend and the villain don't all end up in every picture, merged.
+ * mentions go to the model, one picture each (the first one of that name), so the hero, his friend and the
+ * villain don't all end up in every picture, merged.
  */
 export function refsForScene(v: PageCharacter | null | undefined, scene: string): { file: string; name: string }[] {
   const all = refsInUse(v).map((file, i) => ({ file, name: v?.names?.[i]?.trim() ?? '' }));
-  return castOf(v).length ? all.filter((r) => r.name && inScene(scene, r.name)) : all.map((r) => ({ ...r, name: '' }));
+  if (!castOf(v).length) return all.map((r) => ({ ...r, name: '' }));
+  const seen = new Set<string>();
+  return all.filter((r) => {
+    const key = r.name.toLowerCase();
+    if (!r.name || seen.has(key) || !inScene(scene, r.name)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** What Gemini has to respect when it invents a scene: the world, the style, the recurring character. */

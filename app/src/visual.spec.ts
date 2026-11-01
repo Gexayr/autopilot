@@ -7,8 +7,9 @@ const page: PageCharacter = {
 };
 
 describe('refsForScene', () => {
-  it('sends only the characters the scene mentions', () => {
-    expect(refsForScene(page, 'Thorne repairs a clock while Finn keeps watch').map((r) => r.file)).toEqual(['a.jpg', 'b.jpg', 'd.jpg']);
+  it('sends only the characters the scene mentions, one picture each', () => {
+    expect(refsForScene(page, 'Thorne repairs a clock while Finn keeps watch').map((r) => r.file)).toEqual(['a.jpg', 'b.jpg']);
+    expect(refsForScene(page, 'Edgar Thorne alone in his workshop').map((r) => r.file)).toEqual(['a.jpg']);
     expect(refsForScene(page, 'The chronophage rises over the Thames').map((r) => r.name)).toEqual(['The Chronophage']);
     expect(refsForScene(page, 'An empty foggy street at dawn')).toEqual([]);
   });
