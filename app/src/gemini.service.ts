@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { config } from './config';
 import { Page } from './entities';
-import { brandColors, sceneRules } from './visual';
+import { brandColors, castOf, sceneRules } from './visual';
 
 export interface GeneratedPost {
   quote: string;
@@ -71,6 +71,26 @@ export class GeminiService {
     return JSON.parse(await this.withRetries(prompt, SCENE_SCHEMA));
   }
 
+  /** Caption and hashtags for a picture or video the owner uploaded without text (`image`: the JPEG or a frame of the video). */
+  async describe(page: Page, image: Buffer, kind: 'IMAGE' | 'VIDEO'): Promise<{ caption: string; hashtags: string[] }> {
+    const lang = LANGS[page.language] ?? page.language;
+    const cast = castOf(page.character);
+    const prompt = [
+      `You write posts for an Instagram page. Page topic and voice: ${page.niche}`,
+      `The owner uploaded this ${kind === 'VIDEO' ? 'video (you see one frame of it)' : 'picture'}. Write its post in ${lang}, about what is actually shown.`,
+      cast.length ? `Recurring characters of the page: ${cast.join(', ')}. ${page.character!.description} If one of them is in the picture, call them by that name.` : '',
+      `- "caption": the Instagram caption: 2-4 short sentences that fit the page voice and end with a question or call to action. Max 600 characters. Emoji allowed sparingly.`,
+      `- "hashtags": 8-15 relevant hashtags without the # sign, mixing popular and niche ones, in ${lang} and English.`,
+      `Never use em dashes (—) or en dashes (–) anywhere; use commas, colons or periods instead.`,
+    ].filter(Boolean).join('\n');
+    const schema = { type: 'OBJECT', properties: { caption: STR, hashtags: { type: 'ARRAY', items: STR } }, required: ['caption', 'hashtags'] };
+    const out = JSON.parse(await this.withRetries(prompt, schema, image));
+    return {
+      caption: noDashes(String(out.caption).trim()),
+      hashtags: (out.hashtags as string[]).map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 25),
+    };
+  }
+
   /** A short "it's a game about …" turned into a vivid description of the world for the scene prompts. */
   async world(brief: string, language: string): Promise<string> {
     const prompt = [
@@ -86,13 +106,13 @@ export class GeminiService {
    * Gemini's free tier often answers 503 "high demand" for a minute or two: retry, then fall back to lighter models
    * (config.gemini.fallbacks) instead of failing the post.
    */
-  private async withRetries(prompt: string, schema: object): Promise<string> {
+  private async withRetries(prompt: string, schema: object, image?: Buffer): Promise<string> {
     const models = [...new Set([config.gemini.model, ...config.gemini.fallbacks])];
     let last: unknown;
     for (const model of models) {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          return await this.request(model, prompt, schema);
+          return await this.request(model, prompt, schema, image);
         } catch (e) {
           last = e;
           if (!(e instanceof GeminiError && e.busy) && (e as Error).name !== 'TimeoutError') throw e;
@@ -102,7 +122,7 @@ export class GeminiService {
       }
     }
     // Gemini's free daily quota runs out too: Qwen on the Alibaba key (its own free quota) is the last resort
-    if (config.dashscope.apiKey) {
+    if (config.dashscope.apiKey && !image) { // Qwen here is text-only: it can't see a picture
       try {
         return await this.requestQwen(prompt, schema);
       } catch (e) {
@@ -133,14 +153,14 @@ export class GeminiService {
     return text as string;
   }
 
-  private async request(model: string, prompt: string, schema: object): Promise<string> {
+  private async request(model: string, prompt: string, schema: object, image?: Buffer): Promise<string> {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': config.gemini.apiKey },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          contents: [{ role: 'user', parts: [...(image ? [{ inlineData: { mimeType: 'image/jpeg', data: image.toString('base64') } }] : []), { text: prompt }] }],
           generationConfig: {
             temperature: 1.1,
             responseMimeType: 'application/json',

@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
-import { rm } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { readFile, rm } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { DateTime } from 'luxon';
 import { DataSource, In, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
@@ -13,6 +15,15 @@ import { pickTheme, RenderService } from './render.service';
 import { formatSlot, nextFreeSlot } from './slots';
 import { bt, Lang, langOf } from './bot.i18n';
 import { Keyboard, TelegramApi } from './telegram.api';
+
+/** A frame one second into the clip (the very first one is often black), as JPEG; the first frame for shorter clips. */
+const videoFrame = async (file: string): Promise<Buffer> => {
+  const grab = async (at: string) => (await promisify(execFile)('ffmpeg', [
+    '-v', 'error', '-ss', at, '-i', file, '-frames:v', '1', '-vf', 'scale=720:-2', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-',
+  ], { encoding: 'buffer', maxBuffer: 20 * 1024 * 1024 })).stdout;
+  const frame = await grab('1');
+  return frame.length ? frame : grab('0');
+};
 
 const UNIQUE_VIOLATION = '23505';
 const hashQuote = (q: string) => createHash('sha1').update(q.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')).digest('hex');
@@ -250,7 +261,23 @@ export class PostsService {
 
   async assignPage(postId: number, pageId: number) {
     await this.posts.update({ id: postId, status: 'draft' }, { pageId, num: await this.nextNum(pageId) });
+    await this.captionUpload(postId);
     return this.approve(postId);
+  }
+
+  /** Uploaded without text: Gemini looks at the picture (or a frame of the video) and writes the caption and hashtags. */
+  private async captionUpload(postId: number) {
+    const post = await this.posts.findOneByOrFail({ id: postId });
+    if (post.caption.trim() || !post.mediaFile || !post.pageId) return;
+    const page = await this.pages.findOneByOrFail({ id: post.pageId });
+    try {
+      const file = join(config.mediaDir, post.mediaFile);
+      const image = post.kind === 'IMAGE' ? await readFile(file) : await videoFrame(file);
+      const g = await this.gemini.describe(page, image, post.kind === 'VIDEO' ? 'VIDEO' : 'IMAGE');
+      await this.posts.update(postId, { caption: `${g.caption}\n\n${g.hashtags.map((t) => `#${t}`).join(' ')}`.slice(0, 2200) });
+    } catch (e) {
+      this.log.warn(`caption for upload ${postId}: ${(e as Error).message}`); // the post still goes out, just without text
+    }
   }
 
   async publishNow(page: Page) {

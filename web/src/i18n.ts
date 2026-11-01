@@ -253,7 +253,7 @@ const ru = {
   'upload.otherFile': 'Другой файл',
   'upload.when': 'Когда опубликовать',
   'upload.caption': 'Подпись',
-  'upload.captionPh': 'Текст под постом, хэштеги…',
+  'upload.captionPh': 'Текст под постом, хэштеги. Оставьте пустым, и AI напишет сам',
   'upload.submit': 'Загрузить',
   'upload.done': 'Загружено и поставлено в очередь',
 
@@ -658,7 +658,7 @@ const en: Dict = {
   'upload.otherFile': 'Choose another file',
   'upload.when': 'When to publish',
   'upload.caption': 'Caption',
-  'upload.captionPh': 'Text under the post, hashtags…',
+  'upload.captionPh': 'Text under the post, hashtags. Leave empty and AI will write it',
   'upload.submit': 'Upload',
   'upload.done': 'Uploaded and scheduled',
 
@@ -1060,7 +1060,7 @@ const hy: Dict = {
   'upload.otherFile': 'Այլ ֆայլ',
   'upload.when': 'Երբ հրապարակել',
   'upload.caption': 'Տեքստ',
-  'upload.captionPh': 'Տեքստ գրառման տակ, հեշթեգեր…',
+  'upload.captionPh': 'Տեքստ գրառման տակ, հեշթեգեր: Թողեք դատարկ, և AI-ը կգրի',
   'upload.submit': 'Վերբեռնել',
   'upload.done': 'Վերբեռնված է և դրված է հերթում',
 

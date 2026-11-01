@@ -17,7 +17,7 @@ const ru = {
 ✏️ заменить текст на картинке
 ❌ выбросить
 
-Свой контент: пришлите фото или видео с подписью, и оно встанет в очередь.
+Свой контент: пришлите фото или видео, и оно встанет в очередь. Без подписи AI напишет текст и хэштеги сам.
 
 Контент: это о чём посты и их расписание для одного аккаунта Instagram.
 
@@ -146,7 +146,7 @@ Every day I prepare posts for your content and send them here:
 ✏️ replace the text on the image
 ❌ discard
 
-Your own content: send a photo or video with a caption, and it will join the queue.
+Your own content: send a photo or video and it will join the queue. Without a caption, AI writes the text and hashtags.
 
 Content is what the posts are about and their schedule, for one Instagram account.
 
@@ -273,7 +273,7 @@ const hy: Record<Key, string> = {
 ✏️ փոխել նկարի տեքստը
 ❌ մերժել
 
-Ձեր սեփական բովանդակությունը. ուղարկեք լուսանկար կամ տեսանյութ նկարագրությամբ, և այն կավելանա հերթում։
+Ձեր սեփական բովանդակությունը. ուղարկեք լուսանկար կամ տեսանյութ, և այն կավելանա հերթում։ Առանց նկարագրության AI-ը ինքը կգրի տեքստը և հեշթեգերը։
 
 Թեման այն է, թե ինչի մասին են գրառումները և դրանց ժամանակացույցը մեկ Instagram հաշվի համար։
 
