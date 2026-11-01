@@ -27,13 +27,36 @@ export const styleText = (v?: PageCharacter | null) => {
 export const refsInUse = (v?: PageCharacter | null) =>
   !v?.refs.length ? [] : v.refsMode === 'style' || v.enabled ? v.refs : [];
 
+/** Named characters of the page (several pictures may share a name), or none when the pictures aren't named. */
+export const castOf = (v?: PageCharacter | null): string[] =>
+  !v?.enabled || v.refsMode === 'style' ? [] : [...new Set((v.names ?? []).filter((_, i) => i < v.refs.length).map((n) => n.trim()).filter(Boolean))];
+
+const NAME_SKIP = new Set(['the', 'and', 'of', 'von', 'van', 'mr', 'mrs', 'sir', 'lady', 'lord', 'dr']);
+const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Is the character in the scene? Any distinctive word of its name counts ("Thorne" for "Professor Thorne"). */
+const inScene = (scene: string, name: string) =>
+  name.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 && !NAME_SKIP.has(w))
+    .some((w) => new RegExp(`(^|[^\\p{L}])${escape(w)}([^\\p{L}]|$)`, 'iu').test(scene));
+
+/**
+ * Pictures for this scene with the name of who is on each. With named pictures only the characters the scene
+ * mentions go to the model, so the hero, his friend and the villain don't all end up in every picture, merged.
+ */
+export function refsForScene(v: PageCharacter | null | undefined, scene: string): { file: string; name: string }[] {
+  const all = refsInUse(v).map((file, i) => ({ file, name: v?.names?.[i]?.trim() ?? '' }));
+  return castOf(v).length ? all.filter((r) => r.name && inScene(scene, r.name)) : all.map((r) => ({ ...r, name: '' }));
+}
+
 /** What Gemini has to respect when it invents a scene: the world, the style, the recurring character. */
 export function sceneRules(v?: PageCharacter | null, colors?: string[]): string[] {
   return [
     colors?.length ? `Brand colors that must dominate the palette of every scene: ${colors.join(', ')}.` : '',
     v?.world?.trim() ? `Every scene takes place in this world (keep its look, places and mood): ${v.world.trim()}` : '',
     `Visual style of the scene: ${styleText(v)}.`,
-    v?.enabled && v.description ? `A recurring character must be the main subject, doing something that fits the post: ${v.description}` : '',
+    castOf(v).length
+      ? `Recurring characters: ${castOf(v).join(', ')}. ${v!.description} Most scenes show one or two of them doing something that fits the post, some show only the world; whenever one appears, call them by the exact name above.`
+      : v?.enabled && v.description ? `A recurring character must be the main subject, doing something that fits the post: ${v.description}` : '',
   ].filter(Boolean);
 }
 
@@ -43,13 +66,15 @@ const PEOPLE = /\b(man|men|woman|women|person|persons|people|human|humans|guy|gi
 export const hasPeople = (scene: string) => PEOPLE.test(scene);
 
 /** Prompt for the image model. */
-export function imagePrompt(v: PageCharacter | null | undefined, scene: string, withRefs: boolean, colors?: string[]): string {
+export function imagePrompt(v: PageCharacter | null | undefined, scene: string, refs: { name: string }[], colors?: string[]): string {
+  const named = refs.some((r) => r.name);
   return [
     colors?.length ? `Color palette built on the brand colors ${colors.join(', ')}.` : '',
-    withRefs && v?.refsMode === 'style'
-      ? 'Match the world, art style, colors and atmosphere of the reference images (they show the setting, do not copy them literally).'
-      : withRefs ? 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face.' : '',
-    v?.enabled && v.description ? `Character: ${v.description}.` : '',
+    !refs.length ? ''
+      : v?.refsMode === 'style' ? 'Match the world, art style, colors and atmosphere of the reference images (they show the setting, do not copy them literally).'
+      : named ? `${refs.map((r, i) => `Reference image ${i + 1} shows ${r.name}.`).join(' ')} Draw each of them exactly as in their reference image: face, hair, beard, clothes, proportions. They are different characters: never mix their features. Use the pictures only for the characters, not for the background or composition.`
+      : 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face.',
+    v?.enabled && v.description && !castOf(v).length ? `Character: ${v.description}.` : '',
     v?.world?.trim() ? `World: ${v.world.trim()}` : '',
     `Scene: ${scene}`,
     // image models pick faces on their own (Qwen leans Asian): the owner wants European / Caucasian people,

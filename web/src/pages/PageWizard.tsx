@@ -18,7 +18,7 @@ export default function PageWizard() {
   const set = (patch: Partial<PageDraft>) => setV((x) => ({ ...x, ...patch }));
   const [world, setWorld] = useState<WorldDraft>(emptyWorld);
   // pictures picked before the page exists: uploaded right after it is created
-  const [refs, setRefs] = useState<{ key: string; url: string; file: File }[]>([]);
+  const [refs, setRefs] = useState<{ key: string; url: string; file: File; name: string }[]>([]);
   const [logo, setLogo] = useState<{ url: string; file: File } | null>(null);
   const { busy, run } = useAction();
   const nav = useNavigate();
@@ -54,6 +54,7 @@ export default function PageWizard() {
     for (const r of refs) {
       const form = new FormData();
       form.append('file', r.file);
+      form.append('name', r.name);
       await api(`pages/${page.id}/character/refs`, { form });
     }
     // with pictures the first posts start only now, so they already use them
@@ -116,7 +117,8 @@ export default function PageWizard() {
             {v.style.media !== 'ai' && <Text size="sm" c="dimmed" mb="sm">{t('wizard.worldCardMode')}</Text>}
             <WorldEditor v={world} set={(patch) => setWorld((x) => ({ ...x, ...patch }))} busy={busy} onExpand={expandWorld}
               refs={refs} onRemoveRef={(key) => setRefs((xs) => xs.filter((r) => r.key !== key))}
-              onAddRef={(file) => setRefs((xs) => [...xs, { key: `${file.name}-${Date.now()}`, url: URL.createObjectURL(file), file }])} />
+              onRenameRef={(key, name) => setRefs((xs) => xs.map((r) => (r.key === key ? { ...r, name } : r)))}
+              onAddRef={(file) => setRefs((xs) => [...xs, { key: `${file.name}-${Date.now()}`, url: URL.createObjectURL(file), file, name: '' }])} />
           </Card>
         </Stepper.Step>
       </Stepper>

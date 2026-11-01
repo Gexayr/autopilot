@@ -24,12 +24,13 @@ const presetOf = (s: string) => (!s ? 'photo' : (STYLES as readonly string[]).in
  * "World & style" fields, shared by the wizard (pictures kept locally until the page exists) and the
  * page settings (pictures uploaded at once). The parent owns the state and the pictures.
  */
-export function WorldEditor({ v, set, refs, onAddRef, onRemoveRef, onExpand, busy }: {
+export function WorldEditor({ v, set, refs, onAddRef, onRemoveRef, onRenameRef, onExpand, busy }: {
   v: WorldDraft;
   set: (patch: Partial<WorldDraft>) => void;
-  refs: { key: string; url: string }[];
+  refs: { key: string; url: string; name: string }[];
   onAddRef: (file: File) => void;
   onRemoveRef: (key: string) => void;
+  onRenameRef: (key: string, name: string) => void;
   onExpand: () => void;
   busy: string | null;
 }) {
@@ -64,15 +65,22 @@ export function WorldEditor({ v, set, refs, onAddRef, onRemoveRef, onExpand, bus
         <Text size="xs" c="dimmed" mb="xs">{t('world.refsHint')}</Text>
         <SegmentedControl mb="sm" size="xs" value={v.refsMode} onChange={(x) => set({ refsMode: x as WorldDraft['refsMode'] })}
           data={[{ value: 'style', label: t('world.refsStyle') }, { value: 'character', label: t('world.refsCharacter') }]} />
+        {v.refsMode === 'character' && <Text size="xs" c="dimmed" mb="xs">{t('world.refsNamesHint')}</Text>}
         <SimpleGrid cols={{ base: 2, xs: 4 }} spacing="xs">
           {refs.map((r) => (
-            <Box key={r.key} pos="relative">
-              <Image src={r.url} radius="md" h={140} fit="cover" alt="" />
-              <ActionIcon size="sm" color="red" variant="filled" radius="xl" pos="absolute" top={6} right={6}
-                loading={busy === `rm${r.key}`} onClick={() => onRemoveRef(r.key)} aria-label={t('common.delete')}>
-                <IconX size={14} />
-              </ActionIcon>
-            </Box>
+            <Stack key={r.key} gap={4}>
+              <Box pos="relative">
+                <Image src={r.url} radius="md" h={140} fit="cover" alt="" />
+                <ActionIcon size="sm" color="red" variant="filled" radius="xl" pos="absolute" top={6} right={6}
+                  loading={busy === `rm${r.key}`} onClick={() => onRemoveRef(r.key)} aria-label={t('common.delete')}>
+                  <IconX size={14} />
+                </ActionIcon>
+              </Box>
+              {v.refsMode === 'character' && (
+                <TextInput size="xs" placeholder={t('world.refNamePh')} maxLength={60} value={r.name}
+                  onChange={(e) => onRenameRef(r.key, e.currentTarget.value)} />
+              )}
+            </Stack>
           ))}
           {refs.length < MAX_REFS && (
             <FileButton onChange={(f) => f && onAddRef(f)} accept="image/jpeg,image/png,image/webp">

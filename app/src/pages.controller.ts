@@ -86,11 +86,15 @@ function styleFields(s: any): PageStyle {
 }
 
 /** World & style settings from the form; reference pictures are managed by their own endpoints. */
-function characterFields(c: any, refs: string[]): PageCharacter {
+const refName = (x: unknown) => String(x ?? '').trim().slice(0, 60);
+
+function characterFields(c: any, refs: string[], names: string[] = []): PageCharacter {
+  const sent = Array.isArray(c?.names) ? c.names : names;
   return {
     enabled: !!c?.enabled,
     description: String(c?.description ?? '').trim().slice(0, 500),
     refs,
+    names: refs.map((_, i) => refName(sent[i])),
     refsMode: c?.refsMode === 'style' ? 'style' : 'character',
     style: String(c?.style ?? '').trim().slice(0, 300),
     world: String(c?.world ?? '').trim().slice(0, 2000),
@@ -202,7 +206,7 @@ export class PagesController {
       fields.igAccountId = acc.id;
     }
     // pictures come and go through the endpoints below
-    if (body.character !== undefined) fields.character = characterFields(body.character, page.character?.refs ?? []);
+    if (body.character !== undefined) fields.character = characterFields(body.character, page.character?.refs ?? [], page.character?.names);
     if (fields.style) fields.style.logo = page.style.logo; // only the upload endpoint changes it
     await this.pages.update(page.id, fields);
     const updated = await this.pages.findOneByOrFail({ id });
@@ -267,13 +271,14 @@ export class PagesController {
     storage: memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 },
     fileFilter: (_req, f, cb) => cb(/^image\/(jpeg|png|webp)$/.test(f.mimetype) ? null : new BadRequestException('Нужен JPEG/PNG/WebP'), /^image\/(jpeg|png|webp)$/.test(f.mimetype)),
   }))
-  async addRef(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
+  async addRef(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File, @Body('name') who?: string) {
     const page = await this.owned(user, id);
     if (!file) throw new BadRequestException('Файл не получен');
     const character: PageCharacter = page.character ?? { enabled: false, description: '', refs: [] };
     if (character.refs.length >= 4) throw new BadRequestException('Не больше 4 картинок');
     const name = randomName('jpg');
     await sharp(file.buffer).rotate().resize(1536, 1536, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 92 }).toFile(join(config.mediaDir, name));
+    character.names = [...character.refs.map((_, i) => character.names?.[i] ?? ''), refName(who)];
     character.refs = [...character.refs, name];
     await this.pages.update(page.id, { character });
     return this.view(await this.pages.findOneByOrFail({ id }));
@@ -283,7 +288,8 @@ export class PagesController {
   async removeRef(@CurrentUser() user: User, @Param('id', ParseIntPipe) id: number, @Param('file') file: string) {
     const page = await this.owned(user, id);
     if (!page.character?.refs.includes(file)) throw new NotFoundException();
-    await this.pages.update(page.id, { character: { ...page.character, refs: page.character.refs.filter((f) => f !== file) } });
+    const keep = page.character.refs.map((f, i) => ({ f, n: page.character!.names?.[i] ?? '' })).filter((r) => r.f !== file);
+    await this.pages.update(page.id, { character: { ...page.character, refs: keep.map((r) => r.f), names: keep.map((r) => r.n) } });
     await rm(join(config.mediaDir, file), { force: true });
     return this.view(await this.pages.findOneByOrFail({ id }));
   }
@@ -399,7 +405,7 @@ export class PagesController {
       ...p, account: acc ? { id: acc.id, username: acc.username } : null,
       queued, waiting, generating, nextAt: next?.scheduledFor ?? null,
       logoUrl: p.style.logo ? mediaUrl(p.style.logo) : null,
-      character: p.character && { ...p.character, refs: p.character.refs.map((f) => ({ file: f, url: mediaUrl(f) })) },
+      character: p.character && { ...p.character, refs: p.character.refs.map((f, i) => ({ file: f, url: mediaUrl(f), name: p.character!.names?.[i] ?? '' })) },
       followers: stats[0]?.followers ?? null,
       growth7d: stats.length > 1 ? stats[0].followers - stats[stats.length - 1].followers : null,
     };

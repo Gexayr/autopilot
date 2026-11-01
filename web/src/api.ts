@@ -8,7 +8,7 @@ export interface PageStyle {
   brand?: boolean; logo?: string; logoPos?: 'tl' | 'tr' | 'bl' | 'br'; logoSize?: number; colors?: string[]; stripe?: boolean; footer?: string;
 }
 export interface PageCharacter {
-  enabled: boolean; description: string; refs: { file: string; url: string }[];
+  enabled: boolean; description: string; refs: { file: string; url: string; name?: string }[];
   refsMode?: 'character' | 'style'; style?: string; world?: string;
 }
 export interface Page {

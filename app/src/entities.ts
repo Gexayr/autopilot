@@ -33,6 +33,7 @@ export interface PageCharacter {
   enabled: boolean; // draw the character
   description: string; // e.g. "Astro, a small white robot with a blue visor"
   refs: string[]; // reference pictures (files in MEDIA_DIR)
+  names?: string[]; // who is on each picture, same order as refs; same name = one character from several angles
   refsMode?: 'character' | 'style'; // the pictures show the character, or the world / art style to match
   style?: string; // key of VISUAL_STYLES or the user's own words
   world?: string; // the setting every scene happens in, e.g. a game universe

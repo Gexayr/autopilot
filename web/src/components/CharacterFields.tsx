@@ -14,8 +14,11 @@ const fromPage = (p: Page): WorldDraft => {
 /** "World & style" tab of the page settings: pictures upload at once, the rest is saved with its own button. */
 export function CharacterFields({ page, onChange }: { page: Page; onChange: (p: Page) => void }) {
   const [v, setV] = useState<WorldDraft>(() => fromPage(page));
+  // who is on each picture, by file; saved together with the rest
+  const [names, setNames] = useState<Record<string, string>>({});
   const { busy, run } = useAction();
   useEffect(() => setV(fromPage(page)), [page.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refs = page.character?.refs ?? [];
 
   const upload = (file: File) => run('upload', async () => {
     const form = new FormData();
@@ -30,15 +33,15 @@ export function CharacterFields({ page, onChange }: { page: Page; onChange: (p: 
     setV((x) => ({ ...x, world: r.world }));
   });
   const save = () => run('save', async () => {
-    onChange(await api<Page>(`pages/${page.id}`, { method: 'PATCH', body: { character: v } }));
+    onChange(await api<Page>(`pages/${page.id}`, { method: 'PATCH', body: { character: { ...v, names: refs.map((r) => names[r.file] ?? r.name ?? '') } } }));
   }, t('common.saved'));
 
   return (
     <Stack>
       {page.style.media !== 'ai' && <Alert color="yellow">{t('char.needAi')}</Alert>}
       <WorldEditor v={v} set={(patch) => setV((x) => ({ ...x, ...patch }))} busy={busy}
-        refs={(page.character?.refs ?? []).map((r) => ({ key: r.file, url: r.url }))}
-        onAddRef={upload} onRemoveRef={remove} onExpand={expand} />
+        refs={refs.map((r) => ({ key: r.file, url: r.url, name: names[r.file] ?? r.name ?? '' }))}
+        onAddRef={upload} onRemoveRef={remove} onRenameRef={(file, name) => setNames((x) => ({ ...x, [file]: name }))} onExpand={expand} />
       <Group justify="flex-end">
         <Button leftSection={<IconCheck size={16} />} loading={busy === 'save'} onClick={save}>{t('common.save')}</Button>
       </Group>
