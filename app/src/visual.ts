@@ -69,17 +69,20 @@ export const hasPeople = (scene: string) => PEOPLE.test(scene);
 export function imagePrompt(v: PageCharacter | null | undefined, scene: string, refs: { name: string }[], colors?: string[]): string {
   const named = refs.some((r) => r.name);
   return [
+    // first: models follow the style much better when it leads than when it trails the scene
+    `${styleText(v)}.`,
     colors?.length ? `Color palette built on the brand colors ${colors.join(', ')}.` : '',
     !refs.length ? ''
       : v?.refsMode === 'style' ? 'Match the world, art style, colors and atmosphere of the reference images (they show the setting, do not copy them literally).'
       : named ? `${refs.map((r, i) => `Reference image ${i + 1} shows ${r.name}.`).join(' ')} Draw each of them exactly as in their reference image: face, hair, beard, clothes, proportions. They are different characters: never mix their features. Use the pictures only for the characters, not for the background or composition.`
       : 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face.',
     v?.enabled && v.description && !castOf(v).length ? `Character: ${v.description}.` : '',
-    v?.world?.trim() ? `World: ${v.world.trim()}` : '',
+    // no world text here: Gemini already put it into the scene, and repeating it drags every picture back to
+    // the same place (a Venice scene came out half London)
     `Scene: ${scene}`,
     // image models pick faces on their own (Qwen leans Asian): the owner wants European / Caucasian people,
     // added only when the scene has people in it, so a landscape stays a landscape
     hasPeople(scene) ? `People in this image: ${config.peopleAppearance}.` : '',
-    `Style: ${styleText(v)}. No readable text, letters, captions, logos or watermarks anywhere in the image.`,
+    'No readable text, letters, captions, logos or watermarks anywhere in the image.',
   ].filter(Boolean).join('\n');
 }

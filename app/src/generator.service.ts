@@ -13,7 +13,7 @@ import { randomName } from './crypto.util';
 import { Kv, MediaJob, Page, Post, User } from './entities';
 import { Aspect, DashScope, MediaError, PixVerse } from './media.providers';
 import { PostsService } from './posts.service';
-import { brandColors, imagePrompt, refsForScene } from './visual';
+import { brandColors, castOf, imagePrompt, refsForScene } from './visual';
 import { TelegramApi } from './telegram.api';
 
 const runFile = promisify(execFile);
@@ -21,6 +21,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Providers in the order they are tried; the first that works wins. */
 const IMAGE_MODELS = ['qwen-image-2.0', 'wan2.7-image'];
+/**
+ * Pages with named characters: Wan keeps each one's look and takes 4 pictures, Qwen mixes them up (hats, hair).
+ * Wan draws their scenes without characters too, so the whole feed has one look.
+ */
+const imageModels = (page: Page) => (castOf(page.character).length ? [...IMAGE_MODELS].reverse() : IMAGE_MODELS);
 const VIDEO_MODELS: [string, '480P' | '720P'][] = [['wan2.2-i2v-flash', '480P'], ['wan2.6-i2v-flash', '720P']];
 const MAX_ATTEMPTS = 3;
 const STALE_MS = 20 * 60_000;
@@ -131,7 +136,7 @@ export class GeneratorService {
 
     if (!render.aiImage) {
       const img = await this.firstThatWorks('image', steps, [
-        ...IMAGE_MODELS.map((m) => ({ name: `dashscope:${m}`, run: () => this.dashscope.image(m, prompt, refs, aspect), skip: !this.dashscope.ready })),
+        ...imageModels(page).map((m) => ({ name: `dashscope:${m}`, run: () => this.dashscope.image(m, prompt, refs, aspect), skip: !this.dashscope.ready })),
         ...this.pixverse.accounts().map((acc) => ({ name: `pixverse:${acc}:image`, run: () => this.pixverse.image(acc, prompt, refs, aspect) })),
       ]);
       render.aiImage = randomName('jpg');
