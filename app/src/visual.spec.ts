@@ -23,5 +23,6 @@ describe('refsForScene', () => {
   it('labels each picture in the prompt', () => {
     const p = imagePrompt(page, 'Finn and Thorne', [{ name: 'Edgar Thorne' }, { name: 'Finn' }]);
     expect(p).toContain('Reference image 1 shows Edgar Thorne. Reference image 2 shows Finn.');
+    expect(p).toContain('Only Edgar Thorne and Finn in this image, not The Chronophage.');
   });
 });

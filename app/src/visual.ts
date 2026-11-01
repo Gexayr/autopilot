@@ -73,6 +73,9 @@ const PEOPLE = /\b(man|men|woman|women|person|persons|people|human|humans|guy|gi
 /** Does Gemini's scene description have people in it? */
 export const hasPeople = (scene: string) => PEOPLE.test(scene);
 
+const absent = (v: PageCharacter | null | undefined, refs: { name: string }[]) =>
+  castOf(v).filter((n) => !refs.some((r) => r.name.toLowerCase() === n.toLowerCase()));
+
 /** Prompt for the image model. */
 export function imagePrompt(v: PageCharacter | null | undefined, scene: string, refs: { name: string }[], colors?: string[]): string {
   const named = refs.some((r) => r.name);
@@ -86,6 +89,8 @@ export function imagePrompt(v: PageCharacter | null | undefined, scene: string, 
       : 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face.',
     // named characters: their description only when this picture has them, or the model draws them into empty scenes
     v?.enabled && v.description && (named || !castOf(v).length) ? `Character: ${v.description}.` : '',
+    // the description covers the whole cast: without this the model adds the ones that aren't in the scene
+    named && absent(v, refs).length ? `Only ${refs.map((r) => r.name).join(' and ')} in this image, not ${absent(v, refs).join(' or ')}.` : '',
     // no world text here: Gemini already put it into the scene, and repeating it drags every picture back to
     // the same place (a Venice scene came out half London)
     `Scene: ${scene}`,
