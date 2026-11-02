@@ -203,8 +203,10 @@ export class PostsService {
       // an old Telegram preview must not bring a thrown-away post (whose file is already deleted) back
       if (post.status === 'rejected') throw new BadRequestException('Этот пост уже выброшен');
       const page = await this.pages.findOneByOrFail({ id: post.pageId! });
+      // a day back, not from now: a post already out in the current window still takes it, otherwise each
+      // publish frees the window and the next post lands minutes later (4 Astrobot posts in one evening)
       const taken = await this.posts.find({
-        where: { pageId: page.id, status: In(['approved', 'publishing', 'published']), scheduledFor: MoreThan(new Date()) },
+        where: { pageId: page.id, status: In(['approved', 'publishing', 'published']), scheduledFor: MoreThan(new Date(Date.now() - 86_400_000)) },
         select: ['scheduledFor'],
       });
       const at = nextFreeSlot(page.slots, page.timezone, taken.map((p) => p.scheduledFor!), new Date(Date.now() + 60_000));
