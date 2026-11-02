@@ -31,11 +31,20 @@ export class GeminiError extends Error {
 /** The owner doesn't want long dashes anywhere, so strip any the model still produces. */
 export const noDashes = (s: string) => s.replace(/\s+[—–]\s+/g, ', ').replace(/[—–]/g, '-');
 
+/**
+ * Without this every motivation page gets the same stock picture (a climber on a peak at sunrise): the model
+ * doesn't know what the page already showed, so it keeps picking the most obvious image.
+ */
+const varietyRule = (recent: string[]) =>
+  recent.length
+    ? `Recent pictures of this page, the new scene must be clearly different from all of them (another place, subject, action, time of day and mood; do not reuse the same kind of setting):\n${recent.map((x) => `- ${x.slice(0, 160)}`).join('\n')}`
+    : '';
+
 @Injectable()
 export class GeminiService {
   private readonly log = new Logger(GeminiService.name);
 
-  async generate(page: Page, recentQuotes: string[], hint?: string, language = page.language): Promise<GeneratedPost> {
+  async generate(page: Page, recentQuotes: string[], hint?: string, language = page.language, recentScenes: string[] = []): Promise<GeneratedPost> {
     const lang = LANGS[language] ?? language;
     const prompt = [
       `You write posts for an Instagram page. Page topic and voice: ${page.niche}`,
@@ -49,6 +58,7 @@ export class GeminiService {
       `Never use em dashes (—) or en dashes (–) anywhere; use commas, colons or periods instead.`,
       hint ? `Extra instruction from the editor: ${hint}` : '',
       recentQuotes.length ? `Do NOT repeat or paraphrase any of these recent quotes:\n${recentQuotes.map((q) => `- ${q}`).join('\n')}` : '',
+      varietyRule(recentScenes),
     ].filter(Boolean).join('\n');
 
     const text = await this.withRetries(prompt, POST_SCHEMA);
@@ -60,13 +70,14 @@ export class GeminiService {
   }
 
   /** Another picture for the same quote (the user didn't like the previous still). */
-  async scene(page: Page, quote: string, previous?: string): Promise<{ scene: string; motion: string }> {
+  async scene(page: Page, quote: string, previous?: string, recentScenes: string[] = []): Promise<{ scene: string; motion: string }> {
     const prompt = [
       `An Instagram post (topic: ${page.niche}) carries this thought: "${quote}".`,
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a short video made from that image: what moves and how the camera moves.`,
       ...sceneRules(page.character, brandColors(page.style)),
       previous ? `The previous scene was rejected, make a clearly different one (other place, action and mood):\n${previous}` : '',
+      varietyRule(recentScenes.filter((x) => x !== previous)),
     ].filter(Boolean).join('\n');
     return JSON.parse(await this.withRetries(prompt, SCENE_SCHEMA));
   }

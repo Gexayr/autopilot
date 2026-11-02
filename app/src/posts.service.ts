@@ -104,13 +104,18 @@ export class PostsService {
     }
   }
 
+  /** The last few AI scenes of the page, so the next picture isn't the same mountain again. */
+  private scenesOf(posts: Post[]) {
+    return posts.map((p) => p.render?.scene).filter((x): x is string => !!x).slice(0, 8);
+  }
+
   async generate(page: Page, hint?: string, language?: string): Promise<Post> {
     const lang = language && language !== page.language ? language : undefined;
     const recent = await this.posts.find({
-      where: { pageId: page.id, quote: Not(IsNull()) }, order: { id: 'DESC' }, take: 40, select: ['quote'],
+      where: { pageId: page.id, quote: Not(IsNull()) }, order: { id: 'DESC' }, take: 40, select: ['quote', 'render'],
     });
     for (let attempt = 0; ; attempt++) {
-      const g = await this.gemini.generate(page, recent.map((p) => p.quote!), hint, lang);
+      const g = await this.gemini.generate(page, recent.map((p) => p.quote!), hint, lang, this.scenesOf(recent));
       const kind = Math.random() < page.reelsRatio && (page.style.media !== 'ai' || await this.videoAllowed(page)) ? 'VIDEO' : 'IMAGE';
       const theme = pickTheme(page.style, Math.floor(Math.random() * 1000));
       const ai = page.style.media === 'ai';
@@ -437,7 +442,8 @@ export class PostsService {
     const post = await this.posts.findOneByOrFail({ id: postId });
     if (post.status !== 'frame_approval') throw new BadRequestException('Этот пост уже обработан');
     const page = await this.pages.findOneByOrFail({ id: post.pageId! });
-    const { scene, motion } = await this.gemini.scene(page, post.quote ?? '', post.render.scene);
+    const recent = await this.posts.find({ where: { pageId: page.id }, order: { id: 'DESC' }, take: 12, select: ['render'] });
+    const { scene, motion } = await this.gemini.scene(page, post.quote ?? '', post.render.scene, this.scenesOf(recent));
     if (post.render.aiImage) await this.removeFile(post.render.aiImage);
     await this.posts.update({ id: postId, status: 'frame_approval' },
       { status: 'generating', render: { ...post.render, scene, motion, aiImage: undefined } });
