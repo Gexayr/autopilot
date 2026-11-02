@@ -61,6 +61,8 @@ export class GeneratorService {
 
   async run() {
     this.log.log(`generator up: dashscope ${this.dashscope.ready ? 'on' : 'off'}, pixverse accounts ${this.pixverse.accounts().join(', ') || 'none'}`);
+    // one generator runs: whatever is 'running' now was cut off by a restart (a deploy), so don't wait STALE_MS
+    await this.db.query(`UPDATE media_jobs SET status = 'queued' WHERE status = 'running'`);
     await this.checkPixverseLogins();
     let lastHousekeeping = Date.now();
     while (!this.stopped) {

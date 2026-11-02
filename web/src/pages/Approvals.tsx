@@ -1,4 +1,5 @@
 import { Alert, Badge, Button, Card, Center, Group, Loader, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { PageLoader } from '../components/PageLoader';
 import { IconCheck, IconMovie, IconPencil, IconPhotoEdit, IconRefresh, IconSparkles, IconX, IconRocket } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -65,7 +66,7 @@ export default function Approvals({ onChange }: { onChange: () => void }) {
 
       {params.get('new') && <Alert color="violet" icon={<IconSparkles />}>{t('approvals.newAlert')}</Alert>}
       {genUntil > Date.now() && <Alert color="gray" icon={<Loader size="xs" />}>{t('approvals.working')}</Alert>}
-      {posts.loading && <Loader />}
+      {posts.loading && <PageLoader />}
       {!posts.loading && list.length === 0 && <Card withBorder p="xl"><Text ta="center" c="dimmed">{t('approvals.empty')}</Text></Card>}
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>

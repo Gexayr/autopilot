@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Group, Loader, Select, Stack, Tabs, Title } from '@mantine/core';
+import { PageLoader } from '../components/PageLoader';
 import { IconArrowLeft, IconCalendarTime, IconCheck, IconWorld, IconPalette, IconTextCaption, IconTrash } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -25,7 +26,7 @@ export default function PageEdit() {
   }, [page.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (page.error) return <Alert color="red">{page.error}</Alert>;
-  if (!v || !page.data) return <Loader />;
+  if (!v || !page.data) return <PageLoader />;
   const set = (patch: Partial<PageDraft>) => setV((x) => x && { ...x, ...patch });
 
   const save = () => run('save', async () => {

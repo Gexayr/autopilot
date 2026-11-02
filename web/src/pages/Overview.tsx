@@ -1,4 +1,5 @@
 import { ActionIcon, Alert, Avatar, Badge, Button, Card, Group, Loader, SimpleGrid, Stack, Switch, Text, Title, Tooltip } from '@mantine/core';
+import { PageLoader } from '../components/PageLoader';
 import { IconBrandInstagram, IconCalendar, IconChecks, IconPlus, IconSettings } from '@tabler/icons-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Account, api, Page } from '../api';
@@ -18,7 +19,7 @@ export default function Overview() {
     await pages.reload();
   });
 
-  if (pages.loading) return <Loader />;
+  if (pages.loading) return <PageLoader />;
   const avatar = (p: Page) => accounts.data?.find((a) => a.id === p.igAccountId)?.avatarUrl;
 
   return (

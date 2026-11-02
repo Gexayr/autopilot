@@ -1,4 +1,5 @@
 import { Alert, Anchor, Avatar, Badge, Button, Card, Group, List, Loader, Modal, Stack, Text, Title } from '@mantine/core';
+import { PageLoader } from '../components/PageLoader';
 import { IconTrash } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
@@ -67,7 +68,7 @@ export default function Accounts() {
       </Modal>
       <Title order={2}>{t('accounts.title')}</Title>
       <Card withBorder><InstagramConnect hasAccounts={!!list.data?.length} /></Card>
-      {list.loading && <Loader />}
+      {list.loading && <PageLoader />}
       {list.error && <Alert color="red">{list.error}</Alert>}
       {list.data?.map((a) => {
         const days = a.tokenExpiresAt ? dayjs(a.tokenExpiresAt).diff(dayjs(), 'day') : null;

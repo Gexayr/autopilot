@@ -86,7 +86,8 @@ export function imagePrompt(v: PageCharacter | null | undefined, scene: string, 
     !refs.length ? ''
       : v?.refsMode === 'style' ? 'Match the world, art style, colors and atmosphere of the reference images (they show the setting, do not copy them literally).'
       : named ? `${refs.map((r, i) => `Reference image ${i + 1} shows ${r.name}.`).join(' ')} Draw each of them exactly as in their reference image: face, hair, beard, clothes, proportions. They are different characters: never mix their features. Use the pictures only for the characters, not for the background or composition.`
-      : 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face.',
+      // the pictures often show the character in someone's hand: without the last sentence that hand lands in every scene
+      : 'Use the character from the reference images as the main character and keep it exactly the same: shape, proportions, colors, materials, face. Take only the character from them: no hands, people, objects or background from the reference images.',
     // named characters: their description only when this picture has them, or the model draws them into empty scenes
     v?.enabled && v.description && (named || !castOf(v).length) ? `Character: ${v.description}.` : '',
     // the description covers the whole cast: without this the model adds the ones that aren't in the scene

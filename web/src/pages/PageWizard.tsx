@@ -1,4 +1,4 @@
-import { Avatar, Button, Card, Group, Loader, Radio, Stack, Stepper, Text, Title } from '@mantine/core';
+import { Avatar, Button, Card, Center, Group, Loader, Radio, Stack, Stepper, Text, Title } from '@mantine/core';
 import { useEffect, useState } from 'react';
 import { IconArrowLeft, IconArrowRight, IconSparkles, IconDeviceFloppy } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
@@ -82,7 +82,7 @@ export default function PageWizard() {
       <Stepper active={step} onStepClick={(s) => s < step && setStep(s)} size="sm">
         <Stepper.Step label={t('wizard.step.instagram')}>
           <Stack mt="md">
-            {accounts.loading && <Loader />}
+            {accounts.loading && <Center py="xl"><Loader /></Center>}
             {accounts.data && accounts.data.length > 0 && (
               <Radio.Group value={accountId ? String(accountId) : null} onChange={(x) => setAccountId(Number(x))} label={t('wizard.where')}>
                 <Stack mt="xs" gap="xs">

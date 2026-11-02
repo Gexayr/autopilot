@@ -1,5 +1,6 @@
 import { LineChart } from '@mantine/charts';
 import { Alert, Anchor, Badge, Card, Group, Loader, SegmentedControl, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
+import { PageLoader } from '../components/PageLoader';
 import { useState } from 'react';
 import { api, Stats } from '../api';
 import { useLoad } from '../hooks';
@@ -32,7 +33,7 @@ export default function StatsPage() {
         <Title order={2}>{t('stats.title')}</Title>
         <SegmentedControl value={days} onChange={setDays} data={['7', '30', '90'].map((n) => ({ value: n, label: t('stats.days', { n }) }))} />
       </Group>
-      {stats.loading && <Loader />}
+      {stats.loading && <PageLoader />}
       {stats.error && <Alert color="red">{stats.error}</Alert>}
       {s && (
         <>
