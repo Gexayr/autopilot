@@ -32,7 +32,7 @@ function pageFields(b: any, partial: boolean): Partial<Page> {
     if (!partial && b[k] === undefined) throw new BadRequestException(`${k}: обязательное поле`);
     if (b[k] === undefined) continue;
     const v = String(b[k]).trim();
-    if (!v || v.length > (k === 'title' ? 80 : 1000)) throw new BadRequestException(`${k}: 1-${k === 'title' ? 80 : 1000} символов`);
+    if (!v || v.length > (k === 'title' ? 80 : 2000)) throw new BadRequestException(`${k}: 1-${k === 'title' ? 80 : 2000} символов`);
     (out as any)[k] = v;
   }
   if (b.language !== undefined) {

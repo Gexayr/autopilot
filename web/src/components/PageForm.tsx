@@ -45,7 +45,7 @@ export function TopicFields({ v, set }: { v: PageDraft; set: Set }) {
           <Group gap="xs">{PRESET_KEYS.map((p) => <Chip key={p.key} value={p.key}>{p.emoji} {t(`preset.${p.key}` as Key)}</Chip>)}</Group>
         </Chip.Group>
       </div>
-      <Textarea label={t('form.niche')} description={t('form.nicheHint')} autosize minRows={3} maxRows={8}
+      <Textarea label={t('form.niche')} description={t('form.nicheHint')} autosize minRows={3} maxRows={8} maxLength={2000}
         value={v.niche} onChange={(e) => set({ niche: e.currentTarget.value })} required />
       <div>
         <Text size="sm" fw={500}>{t('form.postLang')}</Text>
