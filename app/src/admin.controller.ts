@@ -6,6 +6,7 @@ import { config } from './config';
 import { AdminOnly, AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { Kv, Page, User } from './entities';
+import { PostsService } from './posts.service';
 
 @Controller('api/admin')
 @UseGuards(AuthGuard)
@@ -17,6 +18,7 @@ export class AdminController {
     @InjectRepository(Page) private readonly pages: Repository<Page>,
     @InjectRepository(Kv) private readonly kv: Repository<Kv>,
     @InjectDataSource() private readonly db: DataSource,
+    private readonly posts: PostsService,
   ) {}
 
   /** AI generator health: PixVerse logins (checked by the generator) and today's jobs per provider. */
@@ -54,11 +56,12 @@ export class AdminController {
   }
 
   @Patch('users/:id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() b: { status?: User['status']; maxPages?: number }) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body() b: { status?: User['status']; maxPages?: number; pro?: boolean }) {
     if (b.maxPages !== undefined) {
       if (!Number.isInteger(b.maxPages) || b.maxPages < 0 || b.maxPages > 100) throw new BadRequestException('maxPages: 0-100');
       await this.users.update(id, { maxPages: b.maxPages });
     }
+    if (b.pro !== undefined) await this.posts.setPro(id, b.pro === true);
     if (b.status !== undefined) {
       if (!['active', 'pending', 'blocked'].includes(b.status)) throw new BadRequestException('bad status');
       const u = await this.users.findOneByOrFail({ id });

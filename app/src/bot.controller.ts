@@ -254,6 +254,14 @@ export class BotController {
         const u = await this.auth.setStatus(id, b === 'ok' ? 'active' : 'blocked');
         return this.tg.clearKeyboard(chat, msgId, bt(lang, b === 'ok' ? 'admin.allowed' : 'admin.denied', { name: u.name || u.email || '' }));
       }
+      case 'pr': // "Activate PRO" under the video limit message
+        await this.posts.requestPro(user);
+        return this.tg.clearKeyboard(chat, msgId, bt(lang, 'proRequested'));
+      case 'pa': { // admin switches PRO on
+        if (user.role !== 'admin') return;
+        const u = await this.posts.setPro(id, true);
+        return this.tg.clearKeyboard(chat, msgId, bt(lang, 'admin.proOn', { name: u.name || u.email || `#${u.id}` }));
+      }
       case 'ar': { // admin added (or refused) an Instagram tester
         if (user.role !== 'admin') return;
         const r = await this.access.decide(id, b === 'ok' ? 'invited' : 'rejected');

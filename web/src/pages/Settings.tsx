@@ -1,4 +1,4 @@
-import { Alert, Anchor, Avatar, Badge, Box, Button, Card, FileButton, Group, Loader, NumberInput, SegmentedControl, Stack, Table, Text, Textarea, Title } from '@mantine/core';
+import { Alert, Anchor, Avatar, Badge, Box, Button, Card, FileButton, Group, Loader, NumberInput, SegmentedControl, Stack, Switch, Table, Text, Textarea, Title } from '@mantine/core';
 import { IconBrandGoogle, IconBrandInstagram, IconBrandTelegram, IconCheck, IconChevronRight, IconKey, IconLink, IconLogout, IconMessageCircle, IconPaperclip, IconSend, IconSparkles, IconX } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
@@ -7,6 +7,7 @@ import { loadGoogle, telegramLogin, useAuth } from '../auth';
 import { useAction, useLoad } from '../hooks';
 import { LangSegmented } from '../components/LangSwitch';
 import { Rich } from '../components/Rich';
+import { ProButton, VideoQuotaLine } from '../components/VideoQuota';
 import { t, tn } from '../i18n';
 import { inTelegram, openExternal } from '../telegram';
 import { dayjs, errText } from '../util';
@@ -44,8 +45,10 @@ export default function Settings() {
           <Avatar src={me!.avatarUrl} size="lg" radius="xl">{me!.name.slice(0, 1)}</Avatar>
           <div>
             <Text fw={600}>{me!.name || '-'}</Text>
-            <Text size="sm" c="dimmed">{me!.role === 'admin' ? t('settings.admin') : t('settings.user')} · {tn('settings.limit', me!.maxPages)}</Text>
+            <Text size="sm" c="dimmed">{me!.role === 'admin' ? t('settings.admin') : t('settings.user')}{me!.pro && ' · PRO'} · {tn('settings.limit', me!.maxPages)}</Text>
+            <VideoQuotaLine />
           </div>
+          {me!.role !== 'admin' && !me!.pro && <ProButton size="xs" />}
         </Group>
       </Card>
 
@@ -99,7 +102,7 @@ function AdminUsers() {
       {users.loading && <Loader size="sm" />}
       <Table.ScrollContainer minWidth={620}>
         <Table verticalSpacing="xs">
-          <Table.Thead><Table.Tr><Table.Th>{t('settings.col.who')}</Table.Th><Table.Th>{t('settings.col.login')}</Table.Th><Table.Th>{t('settings.col.rubrics')}</Table.Th><Table.Th>{t('settings.col.limit')}</Table.Th><Table.Th>{t('settings.col.status')}</Table.Th></Table.Tr></Table.Thead>
+          <Table.Thead><Table.Tr><Table.Th>{t('settings.col.who')}</Table.Th><Table.Th>{t('settings.col.login')}</Table.Th><Table.Th>{t('settings.col.rubrics')}</Table.Th><Table.Th>{t('settings.col.limit')}</Table.Th><Table.Th>PRO</Table.Th><Table.Th>{t('settings.col.status')}</Table.Th></Table.Tr></Table.Thead>
           <Table.Tbody>
             {users.data?.map((u) => (
               <Table.Tr key={u.id}>
@@ -107,6 +110,7 @@ function AdminUsers() {
                 <Table.Td><Text size="xs">{[u.telegram && 'Telegram', u.email].filter(Boolean).join(', ')}</Text></Table.Td>
                 <Table.Td>{u.pages}</Table.Td>
                 <Table.Td><NumberInput size="xs" w={70} min={0} max={100} defaultValue={u.maxPages} onBlur={(e) => Number(e.currentTarget.value) !== u.maxPages && patch(u, { maxPages: Number(e.currentTarget.value) })} /></Table.Td>
+                <Table.Td>{u.role === 'admin' ? '-' : <Switch size="sm" checked={u.pro} disabled={busy === `u${u.id}`} onChange={(e) => patch(u, { pro: e.currentTarget.checked })} aria-label="PRO" />}</Table.Td>
                 <Table.Td>
                   {u.role === 'admin' ? <Badge>{t('settings.adminBadge')}</Badge> : u.status === 'active' ? (
                     <Button size="xs" variant="subtle" color="red" loading={busy === `u${u.id}`} onClick={() => patch(u, { status: 'blocked' })}>{t('settings.block')}</Button>

@@ -44,6 +44,19 @@ export class PostsController {
     @InjectRepository(Page) private readonly pages: Repository<Page>,
   ) {}
 
+  /** AI Reels this month and the limit (null = no limit: admin or PRO). */
+  @Get('video-quota')
+  videoQuota(@CurrentUser() user: User) {
+    return this.posts.videoQuota(user);
+  }
+
+  @HttpPost('pro-request')
+  @HttpCode(200)
+  async proRequest(@CurrentUser() user: User) {
+    await this.posts.requestPro(user);
+    return { ok: true };
+  }
+
   @Get('posts')
   async list(@CurrentUser() user: User, @Query() q: Record<string, string>) {
     const status = q.status ? q.status.split(',').filter((s) => STATUSES.includes(s as PostStatus)) as PostStatus[] : undefined;

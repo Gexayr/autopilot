@@ -5,6 +5,7 @@ import { Account, api, Page } from '../api';
 import { useAction, useLoad } from '../hooks';
 import { t } from '../i18n';
 import { fmtNum, fmtTime, pageColor } from '../util';
+import { VideoQuotaAlert } from '../components/VideoQuota';
 
 export default function Overview() {
   const pages = useLoad(() => api<Page[]>('pages'), [], 30_000);
@@ -27,6 +28,7 @@ export default function Overview() {
         <Button leftSection={<IconPlus size={16} />} onClick={() => nav('/pages/new')}>{t('overview.new')}</Button>
       </Group>
       {pages.error && <Alert color="red">{pages.error}</Alert>}
+      <VideoQuotaAlert />
 
       {pages.data?.length === 0 && (
         <Card withBorder p="xl">

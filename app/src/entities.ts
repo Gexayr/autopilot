@@ -65,6 +65,7 @@ export class User {
   @Column({ type: 'varchar', default: 'user' }) role: UserRole;
   @Column({ type: 'varchar', default: 'pending' }) status: UserStatus; // new users wait for an admin
   @Column({ default: 3 }) maxPages: number;
+  @Column({ default: false }) pro: boolean; // no monthly limit on AI Reels (admins have none either)
   @Column({ type: 'varchar', nullable: true }) language: string | null; // ru | en | hy: site and bot messages; null = not chosen yet
   @CreateDateColumn({ type: 'timestamptz' }) createdAt: Date;
 }

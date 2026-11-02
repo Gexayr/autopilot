@@ -1,7 +1,7 @@
 // Thin fetch wrapper: JWT from localStorage, JSON in/out, server error text in exceptions.
 import { lang, t } from './i18n';
 
-export interface Me { id: number; name: string; avatarUrl: string | null; email: string | null; telegram: boolean; role: 'admin' | 'user'; status: 'active' | 'pending' | 'blocked'; maxPages: number; language: 'ru' | 'en' | 'hy' | null }
+export interface Me { id: number; name: string; avatarUrl: string | null; email: string | null; telegram: boolean; role: 'admin' | 'user'; status: 'active' | 'pending' | 'blocked'; maxPages: number; pro: boolean; language: 'ru' | 'en' | 'hy' | null }
 export interface PublicConfig { botUsername: string | null; googleClientId: string | null; instagramReady: boolean }
 export interface PageStyle {
   theme?: string; font?: 'serif' | 'sans'; signature?: string; media?: 'card' | 'ai'; text?: boolean;

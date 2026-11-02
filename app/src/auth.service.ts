@@ -71,7 +71,7 @@ export class AuthService {
   }
 
   view(u: User) {
-    return { id: u.id, name: u.name, avatarUrl: u.avatarUrl, email: u.email, telegram: !!u.telegramId, role: u.role, status: u.status, maxPages: u.maxPages, language: u.language };
+    return { id: u.id, name: u.name, avatarUrl: u.avatarUrl, email: u.email, telegram: !!u.telegramId, role: u.role, status: u.status, maxPages: u.maxPages, pro: u.pro, language: u.language };
   }
 
   // ---------- Telegram: Mini App ----------

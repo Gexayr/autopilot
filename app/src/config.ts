@@ -16,6 +16,7 @@ export const config = {
   jwtSecret: env('JWT_SECRET'),
   google: { clientId: env('GOOGLE_CLIENT_ID') },
   maxUploadMb: 200,
+  freeVideosPerMonth: Number(env('FREE_VIDEOS_PER_MONTH', '5')), // AI Reels per month for users without PRO
   telegram: {
     token: env('TG_BOT_TOKEN'),
     adminChatId: Number(env('TG_ADMIN_CHAT_ID', '0')),

@@ -8,6 +8,7 @@ import { AccessRequests1761900000000 } from './migrations/1761900000000-AccessRe
 import { UserLanguage1762000000000 } from './migrations/1762000000000-UserLanguage';
 import { AiMedia1762100000000 } from './migrations/1762100000000-AiMedia';
 import { PostNum1762200000000 } from './migrations/1762200000000-PostNum';
+import { Pro1762300000000 } from './migrations/1762300000000-Pro';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -17,7 +18,7 @@ export const dataSourceOptions: DataSourceOptions = {
   password: config.db.password,
   database: config.db.name,
   entities: ENTITIES,
-  migrations: [Init1761700000000, Users1761800000000, AccessRequests1761900000000, UserLanguage1762000000000, AiMedia1762100000000, PostNum1762200000000],
+  migrations: [Init1761700000000, Users1761800000000, AccessRequests1761900000000, UserLanguage1762000000000, AiMedia1762100000000, PostNum1762200000000, Pro1762300000000],
   synchronize: false,
 };
 

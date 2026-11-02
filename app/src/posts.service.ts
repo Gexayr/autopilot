@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { DateTime } from 'luxon';
 import { DataSource, In, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
 import { config, mediaUrl } from './config';
-import { MediaJob, Page, PageStat, Post, PostStatus, User } from './entities';
+import { Kv, MediaJob, Page, PageStat, Post, PostStatus, User } from './entities';
 import { GeminiError, GeminiService } from './gemini.service';
 import { InstagramService } from './instagram.service';
 import { pickTheme, RenderService } from './render.service';
@@ -40,6 +40,7 @@ export class PostsService {
     @InjectRepository(PageStat) private readonly pageStats: Repository<PageStat>,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(MediaJob) private readonly jobs: Repository<MediaJob>,
+    @InjectRepository(Kv) private readonly kv: Repository<Kv>,
     private readonly ig: InstagramService,
     private readonly gemini: GeminiService,
     private readonly render: RenderService,
@@ -110,7 +111,7 @@ export class PostsService {
     });
     for (let attempt = 0; ; attempt++) {
       const g = await this.gemini.generate(page, recent.map((p) => p.quote!), hint, lang);
-      const kind = Math.random() < page.reelsRatio ? 'VIDEO' : 'IMAGE';
+      const kind = Math.random() < page.reelsRatio && (page.style.media !== 'ai' || await this.videoAllowed(page)) ? 'VIDEO' : 'IMAGE';
       const theme = pickTheme(page.style, Math.floor(Math.random() * 1000));
       const ai = page.style.media === 'ai';
       const pure = ai && page.style.text === false; // no quote on the media: it opens the caption instead
@@ -441,6 +442,56 @@ export class PostsService {
     await this.posts.update({ id: postId, status: 'frame_approval' },
       { status: 'generating', render: { ...post.render, scene, motion, aiImage: undefined } });
     await this.jobs.insert({ postId });
+  }
+
+  // ---------- AI Reels limit ----------
+
+  /**
+   * AI Reels made this calendar month by all pages of the owner; a clip still being made counts too, a still
+   * rejected before the clip doesn't (no video credits went into it). `limit` null: admins and PRO users.
+   */
+  async videoQuota(owner: User): Promise<{ used: number; limit: number | null }> {
+    const [{ n }] = await this.db.query(`
+      SELECT count(*)::int AS n FROM posts p JOIN pages g ON g.id = p."pageId"
+      WHERE g."ownerId" = $1 AND p.source = 'ai' AND p.kind = 'VIDEO' AND p."createdAt" >= date_trunc('month', now())
+        AND (p.render ? 'aiVideo' OR p.status IN ('generating', 'frame_approval'))`, [owner.id]);
+    return { used: n, limit: owner.role === 'admin' || owner.pro ? null : config.freeVideosPerMonth };
+  }
+
+  /** Over the limit the post becomes a picture; the owner hears about it once a month, with a PRO button. */
+  private async videoAllowed(page: Page) {
+    const owner = await this.users.findOneByOrFail({ id: page.ownerId });
+    const { used, limit } = await this.videoQuota(owner);
+    if (limit === null || used < limit) return true;
+    const key = `vq:${owner.id}:${DateTime.utc().toFormat('yyyy-MM')}`;
+    if (!await this.kv.existsBy({ key })) {
+      await this.kv.save({ key, value: Date.now() });
+      const to = await this.chatOf(page);
+      if (to) await this.tg.send(to.chat, bt(to.lang, 'videoLimit', { n: limit }), [[{ text: bt(to.lang, 'btn.pro'), callback_data: 'pr:0' }]])
+        .catch((e) => this.log.warn(e.message));
+    }
+    return false;
+  }
+
+  /** "Activate PRO" on the site or in the bot: the admins get a message with a button that switches it on. */
+  async requestPro(user: User) {
+    if (user.pro) return;
+    const key = `pro:req:${user.id}:${DateTime.utc().toISODate()}`; // once a day is enough
+    if (await this.kv.existsBy({ key })) return;
+    await this.kv.save({ key, value: Date.now() });
+    const who = [user.name || '-', user.email, user.telegramId && `tg ${user.telegramId}`, `#${user.id}`].filter(Boolean).join(' · ');
+    for (const a of (await this.users.findBy({ role: 'admin' })).filter((x) => x.telegramId)) {
+      const l = langOf(a);
+      await this.tg.send(Number(a.telegramId), bt(l, 'admin.proRequest', { who }), [[{ text: bt(l, 'btn.proOn'), callback_data: `pa:${user.id}` }]])
+        .catch((e) => this.log.warn(e.message));
+    }
+  }
+
+  async setPro(userId: number, pro: boolean) {
+    await this.users.update(userId, { pro });
+    const u = await this.users.findOneByOrFail({ id: userId });
+    if (pro && u.telegramId) await this.tg.send(Number(u.telegramId), bt(langOf(u), 'proOn')).catch((e) => this.log.warn(e.message));
+    return u;
   }
 
   private async nextNum(pageId: number) {
