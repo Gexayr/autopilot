@@ -10,12 +10,22 @@ export class TelegramApi {
   private readonly log = new Logger(TelegramApi.name);
 
   async call<T = any>(method: string, body: Record<string, unknown>): Promise<T> {
-    const res = await fetch(`https://api.telegram.org/bot${config.telegram.token}/${method}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60_000),
-    });
+    // the connection to Telegram drops now and then (ECONNRESET): without a retry a new user's /start got no answer
+    let res: Response | undefined;
+    for (let attempt = 1; !res; attempt++) {
+      try {
+        res = await fetch(`https://api.telegram.org/bot${config.telegram.token}/${method}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(60_000),
+        });
+      } catch (e: any) {
+        if (attempt >= 3 || e.name === 'TimeoutError') throw e;
+        this.log.warn(`telegram ${method} attempt ${attempt}: ${e.cause?.code ?? e.message}`);
+        await new Promise((r) => setTimeout(r, attempt * 1000));
+      }
+    }
     const json: any = await res.json();
     if (!json.ok) throw new Error(`telegram ${method}: ${json.description}`);
     return json.result;
