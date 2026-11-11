@@ -104,7 +104,8 @@ export class RenderService {
     }, style.footer));
     if (stripe) kids.push(h('div', {
       position: 'absolute', left: 0, right: 0, bottom, height: 8, display: 'flex',
-      backgroundImage: colors.length > 1 ? `linear-gradient(90deg, ${colors.join(', ')})` : undefined, backgroundColor: colors[0],
+      // satori crashes on an undefined style value, so the key must be absent for a single color
+      ...(colors.length > 1 ? { backgroundImage: `linear-gradient(90deg, ${colors.join(', ')})` } : {}), backgroundColor: colors[0],
     }));
     const svg = await satori(h('div', { width, height, display: 'flex', position: 'relative' }, kids) as any, { width, height, fonts: loadFonts() });
     return new Resvg(svg, { fitTo: { mode: 'width', value: width } }).render().asPng();
