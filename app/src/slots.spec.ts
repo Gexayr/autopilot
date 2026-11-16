@@ -1,4 +1,4 @@
-import { nextFreeSlot, slotTimes } from './slots';
+import { nextFreeSlot, slotOverlap, slotTimes } from './slots';
 
 const tz = 'Asia/Yerevan'; // UTC+4
 const take = (g: Generator<Date>, n: number) => Array.from({ length: n }, () => g.next().value!.toISOString());
@@ -40,5 +40,12 @@ describe('slots', () => {
   it('rejects malformed slots', () => {
     expect(() => take(slotTimes(['14:00-13:00'], tz, new Date()), 1)).toThrow('bad slot');
     expect(() => take(slotTimes(['25:00'], tz, new Date()), 1)).toThrow('bad slot');
+  });
+
+  it('finds overlapping times', () => {
+    expect(slotOverlap(['15:00-16:00', '16:00', '16:00-17:00'])).toEqual(['16:00', '16:00-17:00']);
+    expect(slotOverlap(['12:00-13:00', '18:00-20:00', '19:00-20:00'])).toEqual(['18:00-20:00', '19:00-20:00']);
+    expect(slotOverlap(['15:00-16:00', '16:00', '19:00'])).toBeNull();
+    expect(slotOverlap(['10:00-11:00', '11:00-12:00'])).toBeNull();
   });
 });

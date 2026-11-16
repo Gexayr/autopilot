@@ -15,6 +15,7 @@ import PageWizard from './pages/PageWizard';
 import Pending from './pages/Pending';
 import Settings from './pages/Settings';
 import StatsPage from './pages/Stats';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LangMenu } from './components/LangSwitch';
 import { Key, t } from './i18n';
 import { inTelegram } from './telegram';
@@ -87,6 +88,7 @@ function Shell() {
 
       <AppShell.Main>
         <Box maw={1200} mx="auto">
+          <ErrorBoundary key={pathname}>
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/approvals" element={<Approvals onChange={waiting.reload} />} />
@@ -98,6 +100,7 @@ function Shell() {
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ErrorBoundary>
         </Box>
       </AppShell.Main>
 

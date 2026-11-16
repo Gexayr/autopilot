@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { api, Page, PageStyle, Theme } from '../api';
 import { useLoad } from '../hooks';
 import { Key, lang, t, variants } from '../i18n';
-import { LANGUAGES, SLOT_GAP_MIN, SLOT_RE, slotConflicts, TIMEZONES } from '../util';
+import { LANGUAGES, SLOT_GAP_MIN, SLOT_RE, slotConflicts, slotOverlap, TIMEZONES } from '../util';
 
 export interface PageDraft {
   title: string; niche: string; language: string; slots: string[]; reelsRatio: number; timezone: string;
@@ -59,10 +59,12 @@ export function TopicFields({ v, set }: { v: PageDraft; set: Set }) {
 /** `others`: other rubrics of the same Instagram account: their times must not collide with ours. */
 export function ScheduleFields({ v, set, advanced, others = [], account }: { v: PageDraft; set: Set; advanced?: boolean; others?: Page[]; account?: string }) {
   const conflicts = slotConflicts(v.slots, v.timezone, others);
+  const overlap = slotOverlap(v.slots);
   return (
     <Stack>
       <TagsInput label={t('form.times')} description={t('form.timesHint')}
-        data={TIME_OPTIONS} value={v.slots} onChange={(s) => set({ slots: s.map((x) => x.replace(/\s+/g, '')).filter((x) => SLOT_RE.test(x)) })} placeholder={t('form.timesPh')} clearable />
+        data={TIME_OPTIONS} value={v.slots} onChange={(s) => set({ slots: s.map((x) => x.replace(/\s+/g, '')).filter((x) => SLOT_RE.test(x)) })} placeholder={t('form.timesPh')} clearable
+        error={overlap ? t('form.overlap', { a: overlap[0], b: overlap[1] }) : undefined} />
       {conflicts.map((c) => (
         <Alert key={c.slot} color="yellow" p="sm">
           <Text size="sm">{t('form.conflict', { account: account ? `@${account}` : t('form.thisAccount'), time: c.otherTime, rubric: c.page, gap: SLOT_GAP_MIN })}</Text>

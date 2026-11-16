@@ -53,6 +53,14 @@ export function freeSlots(page: Page, posts: Post[], n = 12, from = dayjs()) {
   return out;
 }
 
+/** First two times whose windows overlap ("16:00" and "16:00-17:00"), or null. Same rule as the server. */
+export function slotOverlap(slots: string[]): [string, string] | null {
+  const min = (x: string) => { const [h, m] = x.split(':').map(Number); return h * 60 + m; };
+  const w = slots.map((s) => { const [a, b] = s.split('-'); return { s, a: min(a), b: b ? min(b) : min(a) + 1 }; }).sort((x, y) => x.a - y.a);
+  for (let i = 1; i < w.length; i++) for (let j = 0; j < i; j++) if (w[i].a < w[j].b) return [w[j].s, w[i].s];
+  return null;
+}
+
 /** Minimum distance between two posts of one Instagram account. */
 export const SLOT_GAP_MIN = 60;
 

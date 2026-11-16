@@ -15,6 +15,7 @@ const MESSAGES: [RegExp, string, string][] = [
   [/^(\w+): обязательное поле$/, '$1: required field', '$1: պարտադիր դաշտ'],
   [/^(\w+): 1-(\d+) символов$/, '$1: 1-$2 characters', '$1: 1-$2 նիշ'],
   [/^timezone: неизвестный часовой пояс$/, 'Unknown time zone', 'Անհայտ ժամային գոտի'],
+  [/^slots: время (\S+) пересекается с (\S+)$/, 'Publishing times $1 and $2 overlap: keep one of them', 'Հրապարակման $1 և $2 ժամերը համընկնում են․ թողեք դրանցից մեկը'],
   [/^slots: от 1 до 6 времён$/, 'Choose from 1 to 6 publishing times', 'Ընտրեք 1-ից 6 հրապարակման ժամ'],
   [/^Подключение Instagram ещё не настроено на сервере.*$/, 'Instagram connection is not configured on the server yet', 'Instagram-ի միացումը դեռ կարգավորված չէ սերվերում'],
   [/^Сначала удалите контент этого аккаунта$/, 'Delete this account’s content first', 'Նախ ջնջեք այս հաշվի թեմաները'],

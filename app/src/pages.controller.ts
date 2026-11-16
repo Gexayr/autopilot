@@ -16,7 +16,7 @@ import { GeminiService } from './gemini.service';
 import { InstagramService } from './instagram.service';
 import { PostsService } from './posts.service';
 import { pickTheme, RenderService, THEMES } from './render.service';
-import { slotTimes } from './slots';
+import { slotOverlap, slotTimes } from './slots';
 
 const LANGUAGES = ['ru', 'en', 'hy'];
 const SAMPLE: Record<string, string> = {
@@ -47,6 +47,8 @@ function pageFields(b: any, partial: boolean): Partial<Page> {
     const slots = Array.isArray(b.slots) ? [...new Set(b.slots.map((s: unknown) => String(s).trim()))] as string[] : [];
     if (!slots.length || slots.length > 6) throw new BadRequestException('slots: от 1 до 6 времён');
     try { slotTimes(slots, 'UTC', new Date()).next(); } catch (e) { throw new BadRequestException((e as Error).message); }
+    const overlap = slotOverlap(slots);
+    if (overlap) throw new BadRequestException(`slots: время ${overlap[0]} пересекается с ${overlap[1]}`);
     out.slots = slots.sort();
   }
   if (b.reelsRatio !== undefined) {

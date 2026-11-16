@@ -8,6 +8,7 @@ import { emptyWorld, WorldDraft, WorldEditor } from '../components/WorldEditor';
 import { useAction, useLoad } from '../hooks';
 import InstagramConnect from '../components/InstagramConnect';
 import { lang, t } from '../i18n';
+import { slotOverlap } from '../util';
 
 export default function PageWizard() {
   const accounts = useLoad(() => api<Account[]>('accounts'));
@@ -37,7 +38,7 @@ export default function PageWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.id]);
 
-  const canNext = [!!accountId, !!v.title.trim() && !!v.niche.trim(), v.slots.length > 0, true, true][step];
+  const canNext = [!!accountId, !!v.title.trim() && !!v.niche.trim(), v.slots.length > 0 && !slotOverlap(v.slots), true, true][step];
   const worldSet = !!world.world.trim() || world.enabled || refs.length > 0 || world.style !== 'photo';
 
   /** Creates the page (+ its world), uploads the picked pictures, then asks for the first posts if wanted. */

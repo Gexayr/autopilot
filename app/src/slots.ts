@@ -16,6 +16,18 @@ const parse = (s: string) => {
   return { start, end };
 };
 
+/**
+ * First two times whose windows overlap ("16:00" and "16:00-17:00", "18:00-20:00" and "19:00-20:00"), or null.
+ * An exact time is a one-minute window, so "15:00-16:00" and "16:00" don't overlap.
+ */
+export function slotOverlap(slots: string[]): [string, string] | null {
+  const min = (t: { hour: number; minute: number }) => t.hour * 60 + t.minute;
+  const w = slots.map((s) => { const { start, end } = parse(s); return { s, a: min(start), b: end ? min(end) : min(start) + 1 }; })
+    .sort((x, y) => x.a - y.a);
+  for (let i = 1; i < w.length; i++) for (let j = 0; j < i; j++) if (w[i].a < w[j].b) return [w[j].s, w[i].s];
+  return null;
+}
+
 /** Publishing windows strictly after `from`, in order; an exact time is a one-minute window. */
 export function* slotWindows(slots: string[], tz: string, from: Date): Generator<{ start: Date; end: Date }> {
   const windows = slots.map(parse).sort((a, b) => a.start.hour - b.start.hour || a.start.minute - b.start.minute);
