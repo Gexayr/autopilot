@@ -211,8 +211,10 @@ export class BotController {
         const post = await this.posts.approve(id);
         return this.tg.clearKeyboard(chat, msgId, bt(lang, 'inQueue', { at: formatSlot(post.scheduledFor!, page.timezone, lang) }));
       }
-      case 'pn': { // publish right away instead of the next slot
-        await this.posts.ownedPost(user.id, id);
+      case 'pn': { // publish right away instead of the next slot (its slot is freed for the next post)
+        const { post } = await this.posts.ownedPost(user.id, id);
+        if (post.status === 'published' || post.status === 'publishing') return this.tg.clearKeyboard(chat, msgId, bt(lang, 'alreadyOut'));
+        if (post.status === 'rejected') return this.tg.clearKeyboard(chat, msgId, bt(lang, 'discarded'));
         await this.posts.approveNow(id);
         return this.tg.clearKeyboard(chat, msgId, bt(lang, 'publishing'));
       }

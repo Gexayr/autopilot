@@ -398,7 +398,10 @@ export class PostsService {
       const to = await this.chatOf(page);
       if (to) await this.tg.sendMedia(to.chat, 'VIDEO', mediaUrl(post.mediaFile!),
         bt(to.lang, 'reelQueued', { title: page.title, n: post.num ?? post.id, at: formatSlot(queued.scheduledFor!, page.timezone, to.lang) }),
-        [[{ text: bt(to.lang, 'btn.remove'), callback_data: `rj:${post.id}` }]]).catch((e) => this.log.warn(e.message));
+        // "Publish now" unless it is already going out ("animate and publish"): then its slot is freed for the next post
+        [[...(post.render.publishNow ? [] : [{ text: bt(to.lang, 'btn.publishNow'), callback_data: `pn:${post.id}` }]),
+          { text: bt(to.lang, 'btn.remove'), callback_data: `rj:${post.id}` }]])
+        .catch((e) => this.log.warn(e.message));
       return;
     }
     if (page.autoApprove) return this.approve(postId);
