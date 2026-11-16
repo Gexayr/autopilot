@@ -36,6 +36,8 @@ services:
     volumes:
       # served by nginx at ${PUBLIC_URL}/media/ — Instagram downloads posts from there
       - /var/www/autopilot-media:/media
+      # background music for Reels (src/music.ts), outside the public media folder
+      - /var/lib/autopilot/music:/music
     depends_on:
       db:
         condition: service_healthy
@@ -59,6 +61,7 @@ services:
       PIXVERSE_DIR: /pixverse
     volumes:
       - /var/www/autopilot-media:/media
+      - /var/lib/autopilot/music:/music
       # one logged-in PixVerse account per sub-folder (acc1, acc2, …), owned by uid 1000 (node)
       - /var/lib/autopilot/pixverse:/pixverse
     depends_on:

@@ -59,11 +59,12 @@ export class DashScope {
   }
 
   /** Async task: submit, then poll until the clip is ready (usually under a minute). */
-  async imageToVideo(model: string, image: string, prompt: string, resolution: '480P' | '720P'): Promise<Buffer> {
+  /** `audio`: the model makes the clip's sound too (wan2.5+; wan2.2 is silent). */
+  async imageToVideo(model: string, image: string, prompt: string, resolution: '480P' | '720P', audio = false): Promise<Buffer> {
     const task = await this.call('/services/aigc/video-generation/video-synthesis', {
       method: 'POST',
       headers: { 'X-DashScope-Async': 'enable' },
-      body: JSON.stringify({ model, input: { prompt, img_url: await dataUri(image) }, parameters: { resolution, duration: 5, prompt_extend: false, watermark: false } }),
+      body: JSON.stringify({ model, input: { prompt, img_url: await dataUri(image) }, parameters: { resolution, duration: 5, prompt_extend: false, watermark: false, ...(audio && { audio: true }) } }),
     });
     const id = task.output?.task_id;
     if (!id) throw new MediaError(`dashscope ${model}: no task id`, 'other');

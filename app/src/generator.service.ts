@@ -12,6 +12,7 @@ import { config } from './config';
 import { randomName } from './crypto.util';
 import { Kv, MediaJob, Page, Post, User } from './entities';
 import { Aspect, DashScope, MediaError, PixVerse } from './media.providers';
+import { syncMusic } from './music';
 import { PostsService } from './posts.service';
 import { brandColors, castOf, imagePrompt, refsForScene } from './visual';
 import { TelegramApi } from './telegram.api';
@@ -26,7 +27,8 @@ const IMAGE_MODELS = ['qwen-image-2.0', 'wan2.7-image'];
  * Wan draws their scenes without characters too, so the whole feed has one look.
  */
 const imageModels = (page: Page) => (castOf(page.character).length ? [...IMAGE_MODELS].reverse() : IMAGE_MODELS);
-const VIDEO_MODELS: [string, '480P' | '720P'][] = [['wan2.2-i2v-flash', '480P'], ['wan2.6-i2v-flash', '720P']];
+// the last flag: the model makes sound too (wan2.6 does; PixVerse and wan2.2 clips get background music, see src/music.ts)
+const VIDEO_MODELS: [string, '480P' | '720P', boolean][] = [['wan2.2-i2v-flash', '480P', false], ['wan2.6-i2v-flash', '720P', true]];
 const MAX_ATTEMPTS = 3;
 const STALE_MS = 20 * 60_000;
 
@@ -64,6 +66,7 @@ export class GeneratorService {
     // one generator runs: whatever is 'running' now was cut off by a restart (a deploy), so don't wait STALE_MS
     await this.db.query(`UPDATE media_jobs SET status = 'queued' WHERE status = 'running'`);
     await this.checkPixverseLogins();
+    void syncMusic(this.log); // in the background: Reels rendered before it finishes get their track on the next render
     let lastHousekeeping = Date.now();
     while (!this.stopped) {
       try {
@@ -134,7 +137,7 @@ export class GeneratorService {
     const picked = refsForScene(page.character, scene);
     const refs = picked.map((r) => join(config.mediaDir, r.file));
     const aspect: Aspect = post.kind === 'VIDEO' ? '9:16' : '4:5';
-    const prompt = imagePrompt(page.character, scene, picked, brandColors(page.style));
+    const prompt = imagePrompt(page.character, scene, picked, brandColors(page.style), render.composition);
 
     if (!render.aiImage) {
       const img = await this.firstThatWorks('image', steps, [
@@ -159,7 +162,7 @@ export class GeneratorService {
       try {
         clip = await this.firstThatWorks('video', steps, [
           ...this.pixverse.accounts().map((acc) => ({ name: `pixverse:${acc}`, run: () => this.pixverse.imageToVideo(acc, image, motion) })),
-          ...VIDEO_MODELS.map(([m, res]) => ({ name: `dashscope:${m}`, run: () => this.dashscope.imageToVideo(m, image, motion, res), skip: !this.dashscope.ready })),
+          ...VIDEO_MODELS.map(([m, res, audio]) => ({ name: `dashscope:${m}`, run: () => this.dashscope.imageToVideo(m, image, motion, res, audio), skip: !this.dashscope.ready })),
         ]);
       } catch (e) {
         // no AI video today: the AI picture with a slow zoom is still better than a plain card

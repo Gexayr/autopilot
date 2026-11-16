@@ -76,8 +76,36 @@ export const hasPeople = (scene: string) => PEOPLE.test(scene);
 const absent = (v: PageCharacter | null | undefined, refs: { name: string }[]) =>
   castOf(v).filter((n) => !refs.some((r) => r.name.toLowerCase() === n.toLowerCase()));
 
+/**
+ * Composition rules, one per picture, so the pictures of a page stop looking framed the same way
+ * (the nine of "9 composition rules, one frame each": each is a single sentence in the prompt).
+ */
+export const COMPOSITIONS = {
+  symmetry: 'Symmetrical composition: the subject dead center, the scene mirrored left and right around it.',
+  leadingLines: 'Leading lines: roads, rails, rivers, corridors or beams of light run from the foreground and lead the eye to the subject.',
+  depth: 'Strong depth: a distinct object close in the foreground, the subject in the middle ground and a far background, clearly layered planes.',
+  silhouette: 'Silhouette: the subject is a dark, crisp shape against a bright sky, window or light source, strongly backlit.',
+  negativeSpace: 'Negative space: a small subject surrounded by large empty areas of sky, water, fog or a plain surface.',
+  thirds: 'Rule of thirds: the subject off center on a third line, the horizon on the upper or lower third.',
+  frameInFrame: 'Frame within a frame: the subject seen through a doorway, window, arch, branches or another opening that frames it.',
+  overShoulder: "Over the shoulder: the camera just behind the main character, their shoulder and head soft in the foreground, looking at what they look at.",
+  spiral: 'Golden spiral: the curves of the scene spiral in toward the subject, which sits at the center of the spiral.',
+} as const;
+export type Composition = keyof typeof COMPOSITIONS;
+
+/** A composition the page didn't use in its last few pictures (`recent`: newest first). */
+export function pickComposition(recent: (string | undefined)[], random = Math.random): Composition {
+  const all = Object.keys(COMPOSITIONS) as Composition[];
+  const used = new Set(recent.filter(Boolean).slice(0, 5));
+  const fresh = all.filter((c) => !used.has(c));
+  const from = fresh.length ? fresh : all;
+  return from[Math.floor(random() * from.length)];
+}
+
+export const isComposition = (x: unknown): x is Composition => typeof x === 'string' && x in COMPOSITIONS;
+
 /** Prompt for the image model. */
-export function imagePrompt(v: PageCharacter | null | undefined, scene: string, refs: { name: string }[], colors?: string[]): string {
+export function imagePrompt(v: PageCharacter | null | undefined, scene: string, refs: { name: string }[], colors?: string[], composition?: string): string {
   const named = refs.some((r) => r.name);
   return [
     // first: models follow the style much better when it leads than when it trails the scene
@@ -95,6 +123,7 @@ export function imagePrompt(v: PageCharacter | null | undefined, scene: string, 
     // no world text here: Gemini already put it into the scene, and repeating it drags every picture back to
     // the same place (a Venice scene came out half London)
     `Scene: ${scene}`,
+    isComposition(composition) ? COMPOSITIONS[composition] : '',
     // image models pick faces on their own (Qwen leans Asian): the owner wants European / Caucasian people,
     // added only when the scene has people in it, so a landscape stays a landscape
     hasPeople(scene) ? `People in this image: ${config.peopleAppearance}.` : '',

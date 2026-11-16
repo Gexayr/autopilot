@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { config } from './config';
 import { Page } from './entities';
-import { brandColors, castOf, sceneRules } from './visual';
+import { isMood, Mood, MOODS } from './music';
+import { brandColors, castOf, Composition, COMPOSITIONS, sceneRules } from './visual';
 
 export interface GeneratedPost {
   quote: string;
@@ -35,6 +36,9 @@ export const noDashes = (s: string) => s.replace(/\s+[—–]\s+/g, ', ').replac
  * Without this every motivation page gets the same stock picture (a climber on a peak at sunrise): the model
  * doesn't know what the page already showed, so it keeps picking the most obvious image.
  */
+const compositionRule = (c?: Composition) =>
+  c ? `Composition of the picture (build the scene and the camera around it, and say it in the scene): ${COMPOSITIONS[c]}` : '';
+
 const varietyRule = (recent: string[]) =>
   recent.length
     ? `Recent pictures of this page, the new scene must be clearly different from all of them (another place, subject, action, time of day and mood; do not reuse the same kind of setting):\n${recent.map((x) => `- ${x.slice(0, 160)}`).join('\n')}`
@@ -44,7 +48,7 @@ const varietyRule = (recent: string[]) =>
 export class GeminiService {
   private readonly log = new Logger(GeminiService.name);
 
-  async generate(page: Page, recentQuotes: string[], hint?: string, language = page.language, recentScenes: string[] = []): Promise<GeneratedPost> {
+  async generate(page: Page, recentQuotes: string[], hint?: string, language = page.language, recentScenes: string[] = [], composition?: Composition): Promise<GeneratedPost> {
     const lang = LANGS[language] ?? language;
     const prompt = [
       `You write posts for an Instagram page. Page topic and voice: ${page.niche}`,
@@ -55,6 +59,7 @@ export class GeminiService {
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a 5-second video made from that image: what moves and how the camera moves (e.g. slow push-in, gentle pan).`,
       ...sceneRules(page.character, brandColors(page.style)),
+      compositionRule(composition),
       `Never use em dashes (—) or en dashes (–) anywhere; use commas, colons or periods instead.`,
       hint ? `Extra instruction from the editor: ${hint}` : '',
       recentQuotes.length ? `Do NOT repeat or paraphrase any of these recent quotes:\n${recentQuotes.map((q) => `- ${q}`).join('\n')}` : '',
@@ -70,12 +75,13 @@ export class GeminiService {
   }
 
   /** Another picture for the same quote (the user didn't like the previous still). */
-  async scene(page: Page, quote: string, previous?: string, recentScenes: string[] = []): Promise<{ scene: string; motion: string }> {
+  async scene(page: Page, quote: string, previous?: string, recentScenes: string[] = [], composition?: Composition): Promise<{ scene: string; motion: string }> {
     const prompt = [
       `An Instagram post (topic: ${page.niche}) carries this thought: "${quote}".`,
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a short video made from that image: what moves and how the camera moves.`,
       ...sceneRules(page.character, brandColors(page.style)),
+      compositionRule(composition),
       previous ? `The previous scene was rejected, make a clearly different one (other place, action and mood):\n${previous}` : '',
       varietyRule(recentScenes.filter((x) => x !== previous)),
     ].filter(Boolean).join('\n');
@@ -102,6 +108,28 @@ export class GeminiService {
     };
   }
 
+  /** Mood of the background music for a Reels: one of MOODS (src/music.ts). */
+  async musicMood(page: Page, quote: string, scene?: string): Promise<Mood> {
+    const prompt = [
+      `Pick background music for a short Instagram Reels video (page topic: ${page.niche}).`,
+      `The thought on it: "${quote}".`,
+      scene ? `What the video shows: ${scene}` : '',
+      `- "mood": the music mood that fits the feeling of the thought and the picture best, one of: ${MOODS.join(', ')}.`,
+    ].filter(Boolean).join('\n');
+    const out = JSON.parse(await this.withRetries(prompt, { type: 'OBJECT', properties: { mood: { type: 'STRING', enum: MOODS } }, required: ['mood'] }));
+    return isMood(out.mood) ? out.mood : 'calm';
+  }
+
+  /** What the AI clip's own sound is (`audio`: mp3): music, or sounds of the scene (wind, steps, machines, voices). */
+  async soundKind(audio: Buffer): Promise<'music' | 'ambient'> {
+    const prompt = [
+      `This is the soundtrack of a 5-second AI video.`,
+      `- "kind": "music" if it is mainly music (a melody, instruments, a song, a musical score), "ambient" if it is mainly sounds of the scene: nature, wind, water, footsteps, machines, crowd, voices, sound effects.`,
+    ].join('\n');
+    const out = JSON.parse(await this.withRetries(prompt, { type: 'OBJECT', properties: { kind: { type: 'STRING', enum: ['music', 'ambient'] } }, required: ['kind'] }, audio, 'audio/mp3'));
+    return out.kind === 'music' ? 'music' : 'ambient';
+  }
+
   /** A short "it's a game about …" turned into a vivid description of the world for the scene prompts. */
   async world(brief: string, language: string): Promise<string> {
     const prompt = [
@@ -117,13 +145,13 @@ export class GeminiService {
    * Gemini's free tier often answers 503 "high demand" for a minute or two: retry, then fall back to lighter models
    * (config.gemini.fallbacks) instead of failing the post.
    */
-  private async withRetries(prompt: string, schema: object, image?: Buffer): Promise<string> {
+  private async withRetries(prompt: string, schema: object, image?: Buffer, mime = 'image/jpeg'): Promise<string> {
     const models = [...new Set([config.gemini.model, ...config.gemini.fallbacks])];
     let last: unknown;
     for (const model of models) {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          return await this.request(model, prompt, schema, image);
+          return await this.request(model, prompt, schema, image, mime);
         } catch (e) {
           last = e;
           if (!(e instanceof GeminiError && e.busy) && (e as Error).name !== 'TimeoutError') throw e;
@@ -164,14 +192,14 @@ export class GeminiService {
     return text as string;
   }
 
-  private async request(model: string, prompt: string, schema: object, image?: Buffer): Promise<string> {
+  private async request(model: string, prompt: string, schema: object, image?: Buffer, mime = 'image/jpeg'): Promise<string> {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': config.gemini.apiKey },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [...(image ? [{ inlineData: { mimeType: 'image/jpeg', data: image.toString('base64') } }] : []), { text: prompt }] }],
+          contents: [{ role: 'user', parts: [...(image ? [{ inlineData: { mimeType: mime, data: image.toString('base64') } }] : []), { text: prompt }] }],
           generationConfig: {
             temperature: 1.1,
             responseMimeType: 'application/json',

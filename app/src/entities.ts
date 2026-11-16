@@ -45,11 +45,14 @@ export interface PostRender {
   lang?: string; // set when it differs from the page's
   scene?: string; // English image prompt from Gemini
   motion?: string; // English camera / motion prompt for the clip
+  composition?: string; // key of COMPOSITIONS (src/visual.ts) the scene was built on
   aiImage?: string;
   aiVideo?: string;
   fallback?: boolean; // AI failed, the post got a quote card instead
   frameOk?: boolean; // the still was approved: make the clip and queue it right away
   publishNow?: boolean; // …and publish it as soon as it is ready instead of waiting for a slot
+  music?: { track: number; start: number } | null; // background track (src/music.ts) and where in it the clip starts; null: none
+  clipAudio?: 'none' | 'music' | 'ambient'; // the AI clip's own sound: music stays alone, ambient gets quiet music under it
 }
 
 export type UserRole = 'admin' | 'user';

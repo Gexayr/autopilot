@@ -13,6 +13,8 @@ import { GeminiError, GeminiService } from './gemini.service';
 import { InstagramService } from './instagram.service';
 import { pickTheme, RenderService } from './render.service';
 import { formatSlot, nextFreeSlot } from './slots';
+import { mediaDuration, pickTrack, trackFile } from './music';
+import { pickComposition } from './visual';
 import { bt, Lang, langOf } from './bot.i18n';
 import { Keyboard, TelegramApi } from './telegram.api';
 
@@ -115,7 +117,8 @@ export class PostsService {
       where: { pageId: page.id, quote: Not(IsNull()) }, order: { id: 'DESC' }, take: 40, select: ['quote', 'render'],
     });
     for (let attempt = 0; ; attempt++) {
-      const g = await this.gemini.generate(page, recent.map((p) => p.quote!), hint, lang, this.scenesOf(recent));
+      const composition = page.style.media === 'ai' ? pickComposition(recent.map((p) => p.render?.composition)) : undefined;
+      const g = await this.gemini.generate(page, recent.map((p) => p.quote!), hint, lang, this.scenesOf(recent), composition);
       const kind = Math.random() < page.reelsRatio && (page.style.media !== 'ai' || await this.videoAllowed(page)) ? 'VIDEO' : 'IMAGE';
       const theme = pickTheme(page.style, Math.floor(Math.random() * 1000));
       const ai = page.style.media === 'ai';
@@ -123,7 +126,7 @@ export class PostsService {
       const post = this.posts.create({
         pageId: page.id, num: await this.nextNum(page.id), kind, source: 'ai', status: ai ? 'generating' : 'awaiting_approval', quote: g.quote,
         caption: `${pure ? `${g.quote}\n\n` : ''}${g.caption}\n\n${g.hashtags.map((t) => `#${t}`).join(' ')}`.slice(0, 2200),
-        contentHash: hashQuote(g.quote), render: { theme, ...(lang && { lang }), ...(ai && { scene: g.scene, motion: g.motion }) },
+        contentHash: hashQuote(g.quote), render: { theme, ...(lang && { lang }), ...(ai && { scene: g.scene, motion: g.motion, composition }) },
       });
       try {
         await this.posts.insert(post);
@@ -150,13 +153,63 @@ export class PostsService {
   /** The quote on top of the AI picture / clip when there is one, otherwise the quote card. */
   async renderMedia(post: Post, page: Page) {
     const old = post.mediaFile;
-    const { theme, aiImage, aiVideo } = post.render;
+    await this.prepareSound(post, page);
+    const { theme, aiImage, aiVideo, clipAudio, music } = post.render;
     const text = page.style.text === false ? null : post.quote; // AI media can go out without the quote on it
+    const track = music ? { file: trackFile(music.track), start: music.start } : null;
     post.mediaFile = post.kind === 'VIDEO'
-      ? aiVideo ? await this.render.overlayVideo(aiVideo, text, page.style, theme!) : await this.render.quoteReel(post.quote!, page.style, theme!)
+      ? aiVideo ? await this.render.overlayVideo(aiVideo, text, page.style, theme!, { clip: clipAudio ?? 'none', music: track })
+        : await this.render.quoteReel(post.quote!, page.style, theme!, track)
       : aiImage ? await this.render.overlayImage(aiImage, text, page.style, theme!) : await this.render.quoteImage(post.quote!, page.style, theme!);
     await this.posts.update(post.id, { mediaFile: post.mediaFile });
     if (old) await this.removeFile(old);
+  }
+
+  /**
+   * Reels sound, decided once and kept in post.render (a re-render after an edit keeps the same track): what the AI
+   * clip itself sounds like, and a background track by the mood Gemini picks unless the clip is music already.
+   */
+  private async prepareSound(post: Post, page: Page) {
+    if (post.kind !== 'VIDEO') return;
+    const r = post.render;
+    let changed = false;
+    if (r.aiVideo && !r.clipAudio) {
+      r.clipAudio = await this.clipAudio(join(config.mediaDir, r.aiVideo));
+      changed = true;
+    }
+    if (r.music === undefined && r.clipAudio !== 'music') {
+      const mood = await this.gemini.musicMood(page, post.quote ?? '', r.scene).catch((e) => {
+        this.log.warn(`music mood for post ${post.id}: ${(e as Error).message}`);
+        return 'calm' as const;
+      });
+      const recent = await this.db.query(
+        `SELECT (render->'music'->>'track')::int AS t FROM posts WHERE "pageId" = $1 AND id <> $2 AND render->'music'->>'track' IS NOT NULL ORDER BY id DESC LIMIT 6`,
+        [page.id, post.id]);
+      const track = pickTrack(mood, recent.map((x: { t: number }) => x.t));
+      if (track !== null) { // no library yet (still downloading): the next render tries again
+        const len = await mediaDuration(trackFile(track)).catch(() => 0);
+        r.music = { track, start: Math.round(len * (0.1 + Math.random() * 0.4) * 10) / 10 }; // past the intro, not at the very end
+        changed = true;
+      }
+    }
+    if (changed) await this.posts.update(post.id, { render: r });
+  }
+
+  /** "none" without sound or with a silent track; otherwise Gemini listens: music or sounds of the scene. */
+  private async clipAudio(file: string): Promise<'none' | 'music' | 'ambient'> {
+    const exec = promisify(execFile);
+    const { stdout } = await exec('ffprobe', ['-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=index', '-of', 'csv=p=0', file]);
+    if (!stdout.trim()) return 'none';
+    const { stderr } = await exec('ffmpeg', ['-hide_banner', '-i', file, '-vn', '-af', 'volumedetect', '-f', 'null', '-']);
+    const max = Number(/max_volume: (-?[\d.]+) dB/.exec(stderr)?.[1] ?? -91);
+    if (max < -40) return 'none';
+    try {
+      const mp3 = (await exec('ffmpeg', ['-v', 'error', '-i', file, '-vn', '-ac', '1', '-b:a', '64k', '-f', 'mp3', '-'], { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 })).stdout;
+      return await this.gemini.soundKind(mp3);
+    } catch (e) {
+      this.log.warn(`clip sound: ${(e as Error).message}`);
+      return 'ambient'; // quiet music under it is fine even if it was music after all
+    }
   }
 
   async sendPreview(post: Post, page: Page) {
@@ -448,10 +501,12 @@ export class PostsService {
     if (post.status !== 'frame_approval') throw new BadRequestException('Этот пост уже обработан');
     const page = await this.pages.findOneByOrFail({ id: post.pageId! });
     const recent = await this.posts.find({ where: { pageId: page.id }, order: { id: 'DESC' }, take: 12, select: ['render'] });
-    const { scene, motion } = await this.gemini.scene(page, post.quote ?? '', post.render.scene, this.scenesOf(recent));
+    // another composition too: the rejected one goes first in the "used" list
+    const composition = pickComposition([post.render.composition, ...recent.map((p) => p.render?.composition)]);
+    const { scene, motion } = await this.gemini.scene(page, post.quote ?? '', post.render.scene, this.scenesOf(recent), composition);
     if (post.render.aiImage) await this.removeFile(post.render.aiImage);
     await this.posts.update({ id: postId, status: 'frame_approval' },
-      { status: 'generating', render: { ...post.render, scene, motion, aiImage: undefined } });
+      { status: 'generating', render: { ...post.render, scene, motion, composition, aiImage: undefined } });
     await this.jobs.insert({ postId });
   }
 

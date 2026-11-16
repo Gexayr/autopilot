@@ -8,11 +8,37 @@ import { promisify } from 'node:util';
 import satori from 'satori';
 import sharp from 'sharp';
 import { config } from './config';
+import { mediaDuration } from './music';
 import { randomName } from './crypto.util';
 import { PageStyle } from './entities';
 import { brandOn } from './visual';
 
 const run = promisify(execFile);
+
+/**
+ * Sound of a Reels: `clip` is what the video input (#0) itself sounds like; `music` a background track (src/music.ts).
+ * Music alone plays at normal loudness; under the clip's own scene sounds it is quiet; a clip that is music already
+ * keeps its sound alone; nothing at all gives a silent track (some players reject video-only Reels).
+ */
+export interface ReelSound { clip: 'none' | 'music' | 'ambient'; music?: { file: string; start: number } | null }
+
+const STEREO = 'aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo';
+
+/** ffmpeg audio inputs (they get indexes from `n` on) and the filter part ending in [a], for a `dur`-second video. */
+function soundArgs(sound: ReelSound, n: number, dur: number): { inputs: string[]; graph: string } {
+  const fadeOut = `afade=t=out:st=${Math.max(0, dur - 1.2).toFixed(2)}:d=1.2`;
+  const music = sound.clip !== 'music' ? sound.music : null;
+  if (music) {
+    const under = sound.clip === 'ambient';
+    const inputs = ['-stream_loop', '-1', '-ss', music.start.toFixed(1), '-i', music.file];
+    const m = `[${n}:a]loudnorm=I=${under ? -27 : -16}:TP=-1.5:LRA=11,${STEREO},afade=t=in:d=0.5,${fadeOut}`;
+    return under
+      ? { inputs, graph: `${m}[m];[0:a]loudnorm=I=-17:TP=-1.5:LRA=11,${STEREO}[c];[c][m]amix=inputs=2:duration=longest:normalize=0,alimiter=limit=0.95[a]` }
+      : { inputs, graph: `${m}[a]` };
+  }
+  if (sound.clip !== 'none') return { inputs: [], graph: `[0:a]${STEREO},${fadeOut}[a]` };
+  return { inputs: ['-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo'], graph: `[${n}:a]acopy[a]` };
+}
 
 export const THEMES: Record<string, { bg: string; text: string; accent: string }> = {
   midnight: { bg: 'linear-gradient(160deg, #0f2027 0%, #203a43 55%, #2c5364 100%)', text: '#f5f7fa', accent: '#f6c453' },
@@ -146,9 +172,9 @@ export class RenderService {
 
   /**
    * AI clip cropped to 1080×1920 Reels with the quote fading in. The text sits above the bottom ~300 px,
-   * where Instagram draws its caption and buttons. A silent track is added: some players reject video-only Reels.
+   * where Instagram draws its caption and buttons. Sound: see ReelSound.
    */
-  async overlayVideo(aiVideo: string, quote: string | null, style: PageStyle, theme: string): Promise<string> {
+  async overlayVideo(aiVideo: string, quote: string | null, style: PageStyle, theme: string, sound: ReelSound = { clip: 'none' }): Promise<string> {
     const file = randomName('mp4');
     const layer = join(config.mediaDir, `.${file}.png`);
     const brandFile = join(config.mediaDir, `.${file}.brand.png`);
@@ -163,13 +189,15 @@ export class RenderService {
     if (quote) { graph += `;[${n}:v]format=rgba,fade=t=in:st=0.3:d=0.7:alpha=1[q];[${last}][q]overlay=0:0:shortest=1[v1]`; last = 'v1'; n++; }
     if (brand) { graph += `;[${last}][${n}:v]overlay=0:0:shortest=1[v2]`; last = 'v2'; n++; }
     graph += `;[${last}]format=yuv420p[v]`;
+    const dur = await mediaDuration(join(config.mediaDir, aiVideo));
+    const audio = soundArgs(sound, n, dur);
     try {
       await run('ffmpeg', [
         '-y', '-loglevel', 'error',
         ...inputs.flat(),
-        '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
-        '-filter_complex', graph,
-        '-map', '[v]', '-map', `${n}:a`, '-shortest',
+        ...audio.inputs,
+        '-filter_complex', `${graph};${audio.graph}`,
+        '-map', '[v]', '-map', '[a]', '-t', dur.toFixed(3),
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-profile:v', 'high',
         '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart',
         join(config.mediaDir, file),
@@ -190,8 +218,8 @@ export class RenderService {
     return file;
   }
 
-  /** 1080×1920 Reels: the same card with a slow zoom, silent AAC track, 8-15 s. */
-  async quoteReel(quote: string, style: PageStyle, theme: string): Promise<string> {
+  /** 1080×1920 Reels: the same card with a slow zoom, 8-15 s, background music when there is a track. */
+  async quoteReel(quote: string, style: PageStyle, theme: string, music?: ReelSound['music']): Promise<string> {
     const file = randomName('mp4');
     const frame = join(config.mediaDir, `.${file}.png`);
     const seconds = Math.min(15, Math.max(8, Math.round(6 + quote.length / 20)));
@@ -200,15 +228,16 @@ export class RenderService {
     const brandFile = join(config.mediaDir, `.${file}.brand.png`);
     const brand = await this.brand(style, 1080, 1920, 150, 300);
     if (brand) await writeFile(brandFile, brand);
+    const audio = soundArgs({ clip: 'none', music }, brand ? 2 : 1, seconds);
     const zoom = `[0:v]scale=1620:2880,zoompan=z='1+0.07*on/${frames}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${frames}:s=1080x1920:fps=30,fade=t=in:st=0:d=0.6`;
     try {
       await run('ffmpeg', [
         '-y', '-loglevel', 'error',
         '-loop', '1', '-i', frame,
         ...(brand ? ['-loop', '1', '-i', brandFile] : []), // the logo stays put while the card zooms
-        '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
-        '-filter_complex', brand ? `${zoom}[z];[z][1:v]overlay=0:0,format=yuv420p[v]` : `${zoom},format=yuv420p[v]`,
-        '-map', '[v]', '-map', `${brand ? 2 : 1}:a`, '-t', String(seconds),
+        ...audio.inputs,
+        '-filter_complex', `${brand ? `${zoom}[z];[z][1:v]overlay=0:0,format=yuv420p[v]` : `${zoom},format=yuv420p[v]`};${audio.graph}`,
+        '-map', '[v]', '-map', '[a]', '-t', String(seconds),
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-profile:v', 'high',
         '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart',
         join(config.mediaDir, file),

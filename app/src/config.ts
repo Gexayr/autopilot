@@ -4,6 +4,7 @@ export const config = {
   port: Number(env('PORT', '3000')),
   publicUrl: env('PUBLIC_URL', 'https://autopilot.amsoft.am').replace(/\/$/, ''),
   mediaDir: env('MEDIA_DIR', '/media'),
+  musicDir: env('MUSIC_DIR', '/music'), // background tracks (src/music.ts), not served: the license allows them in videos only
   db: {
     host: env('DB_HOST', 'localhost'),
     port: Number(env('DB_PORT', '5432')),
