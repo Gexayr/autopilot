@@ -45,7 +45,8 @@ export function freeSlots(page: Page, posts: Post[], n = 12, from = dayjs()) {
       const start = at(day, a);
       const end = b ? at(day, b) : start.add(1, 'minute');
       const busy = [...taken].some((x) => x >= start.valueOf() && x < end.valueOf());
-      if (end.valueOf() > from.valueOf() + 60_000 && !busy) out.push(start);
+      // two slots may start at the same minute ("16:00" and "16:00-17:00"): one free slot, not a duplicate
+      if (end.valueOf() > from.valueOf() + 60_000 && !busy && !out.some((d) => d.valueOf() === start.valueOf())) out.push(start);
       if (out.length >= n) break;
     }
   }
