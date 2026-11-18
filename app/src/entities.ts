@@ -37,6 +37,7 @@ export interface PageCharacter {
   refsMode?: 'character' | 'style'; // the pictures show the character, or the world / art style to match
   style?: string; // key of VISUAL_STYLES or the user's own words
   world?: string; // the setting every scene happens in, e.g. a game universe
+  motion?: string; // how the character moves in videos, e.g. "fast and agile, quick steps" (English)
 }
 
 /** Raw AI media of a post, kept so the quote can be re-rendered on top after an edit. */
@@ -46,6 +47,7 @@ export interface PostRender {
   scene?: string; // English image prompt from Gemini
   motion?: string; // English camera / motion prompt for the clip
   composition?: string; // key of COMPOSITIONS (src/visual.ts) the scene was built on
+  action?: string; // key of ACTIONS (src/visual.ts): what the recurring character does in the scene
   aiImage?: string;
   aiVideo?: string;
   fallback?: boolean; // AI failed, the post got a quote card instead

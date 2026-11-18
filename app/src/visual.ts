@@ -93,14 +93,47 @@ export const COMPOSITIONS = {
 } as const;
 export type Composition = keyof typeof COMPOSITIONS;
 
-/** A composition the page didn't use in its last few pictures (`recent`: newest first). */
-export function pickComposition(recent: (string | undefined)[], random = Math.random): Composition {
-  const all = Object.keys(COMPOSITIONS) as Composition[];
-  const used = new Set(recent.filter(Boolean).slice(0, 5));
+/** A key of `table` the page didn't use in its last `skip` pictures (`recent`: newest first). */
+function pickFresh<K extends string>(table: Record<K, string>, recent: (string | undefined)[], skip: number, random: () => number): K {
+  const all = Object.keys(table) as K[];
+  const used = new Set(recent.filter(Boolean).slice(0, skip));
   const fresh = all.filter((c) => !used.has(c));
   const from = fresh.length ? fresh : all;
   return from[Math.floor(random() * from.length)];
 }
+
+/** A composition the page didn't use in its last few pictures (`recent`: newest first). */
+export const pickComposition = (recent: (string | undefined)[], random = Math.random): Composition =>
+  pickFresh(COMPOSITIONS, recent, 5, random);
+
+/**
+ * What the recurring character is doing. Without it the model picks the same moment every time, whatever the
+ * place: AstroBot "stands and gazes up in awe at a colossal X" in a kitchen, a bus, a library, a supermarket.
+ */
+export const ACTIONS = {
+  moving: 'The character is in fast motion: running, jumping, sliding or racing, caught mid-movement, a little motion blur.',
+  riding: 'The character rides or travels on something: a toy car, a skateboard, a leaf on water, a paper boat, a moving belt, an animal, a vehicle.',
+  climbing: 'The character climbs, hangs from or balances on something, effort and risk in the pose.',
+  carrying: 'The character carries, pushes or pulls something big for its size, working hard.',
+  making: 'The character builds, fixes, cooks, paints or crafts something with its hands or tools, focused on the work.',
+  together: 'The character does something together with someone: a person (only hands or part of them may be visible), an animal or another small creature; they interact, help or play.',
+  playing: 'The character plays, dances or has fun: a game, a ball, bubbles, water, music, pure joy in the pose.',
+  resting: 'The character rests: sits, lies, naps or relaxes somewhere cozy, a quiet calm moment.',
+  hiding: 'The character hides, sneaks or peeks out from behind or inside something, playful or cautious.',
+  trouble: 'The character is in a small comic or tense trouble: stuck, tangled, falling, soaked by rain, chased, something went wrong.',
+  closeUp: 'A close-up of the character: the head and face fill much of the frame, its emotion shown by the pose and tilt, the place only a soft background.',
+  discovering: 'The character holds, opens or examines a small found object up close in its hands, absorbed in it.',
+  helping: 'The character helps or rescues someone or something: catches, lifts, waters, feeds, repairs or comforts.',
+  everyday: 'The character does an ordinary human chore or habit at its own scale: reading, washing, shopping, waiting, writing, tidying.',
+} as const;
+export type Action = keyof typeof ACTIONS;
+
+export const pickAction = (recent: (string | undefined)[], random = Math.random): Action => pickFresh(ACTIONS, recent, 8, random);
+
+export const isAction = (x: unknown): x is Action => typeof x === 'string' && x in ACTIONS;
+
+/** Does the page have a recurring character whose action is worth rotating? */
+export const hasCharacter = (v?: PageCharacter | null) => !!(castOf(v).length || (v?.enabled && v.description));
 
 export const isComposition = (x: unknown): x is Composition => typeof x === 'string' && x in COMPOSITIONS;
 
@@ -130,3 +163,7 @@ export function imagePrompt(v: PageCharacter | null | undefined, scene: string, 
     'No readable text, letters, captions, logos or watermarks anywhere in the image.',
   ].filter(Boolean).join('\n');
 }
+
+/** How the recurring character moves in clips (in every video prompt, so the video model doesn't slow it down). */
+export const characterMotion = (v?: PageCharacter | null) =>
+  hasCharacter(v) && v?.motion?.trim() ? `How the character moves: ${v.motion.trim()}` : '';

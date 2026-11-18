@@ -94,12 +94,13 @@ function characterFields(c: any, refs: string[], names: string[] = []): PageChar
   const sent = Array.isArray(c?.names) ? c.names : names;
   return {
     enabled: !!c?.enabled,
-    description: String(c?.description ?? '').trim().slice(0, 500),
+    description: String(c?.description ?? '').trim().slice(0, 1000),
     refs,
     names: refs.map((_, i) => refName(sent[i])),
     refsMode: c?.refsMode === 'style' ? 'style' : 'character',
     style: String(c?.style ?? '').trim().slice(0, 300),
     world: String(c?.world ?? '').trim().slice(0, 2000),
+    motion: String(c?.motion ?? '').trim().slice(0, 300),
   };
 }
 

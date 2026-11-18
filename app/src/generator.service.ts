@@ -14,7 +14,7 @@ import { Kv, MediaJob, Page, Post, User } from './entities';
 import { Aspect, DashScope, MediaError, PixVerse } from './media.providers';
 import { syncMusic } from './music';
 import { PostsService } from './posts.service';
-import { brandColors, castOf, imagePrompt, refsForScene } from './visual';
+import { brandColors, castOf, characterMotion, imagePrompt, refsForScene } from './visual';
 import { TelegramApi } from './telegram.api';
 
 const runFile = promisify(execFile);
@@ -156,7 +156,8 @@ export class GeneratorService {
     }
 
     if (post.kind === 'VIDEO' && !render.aiVideo) {
-      const motion = `${render.motion ?? 'Slow cinematic push-in, gentle natural motion.'} Keep the main subject consistent.`;
+      const motion = [render.motion ?? 'Slow cinematic push-in, gentle natural motion.', characterMotion(page.character), 'Keep the main subject consistent.']
+        .filter(Boolean).join(' ');
       const image = join(config.mediaDir, render.aiImage);
       let clip: Buffer;
       try {

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { config } from './config';
 import { Page } from './entities';
 import { isMood, Mood, MOODS } from './music';
-import { brandColors, castOf, Composition, COMPOSITIONS, sceneRules } from './visual';
+import { Action, ACTIONS, brandColors, castOf, characterMotion, Composition, COMPOSITIONS, sceneRules } from './visual';
 
 export interface GeneratedPost {
   quote: string;
@@ -39,16 +39,27 @@ export const noDashes = (s: string) => s.replace(/\s+[—–]\s+/g, ', ').replac
 const compositionRule = (c?: Composition) =>
   c ? `Composition of the picture (build the scene and the camera around it, and say it in the scene): ${COMPOSITIONS[c]}` : '';
 
+const actionRule = (a?: Action) =>
+  a ? `What the character does in this scene (the heart of the picture, make it clear and specific): ${ACTIONS[a]}` : '';
+
+/**
+ * The scenes are shown whole: cut to 160 characters they were only the character's description ("a small
+ * white-and-blue robot with ..."), so the model never saw that it had already drawn the same moment ten times.
+ */
 const varietyRule = (recent: string[]) =>
   recent.length
-    ? `Recent pictures of this page, the new scene must be clearly different from all of them (another place, subject, action, time of day and mood; do not reuse the same kind of setting):\n${recent.map((x) => `- ${x.slice(0, 160)}`).join('\n')}`
+    ? [
+      `Recent pictures of this page. The new scene must be clearly different from all of them: another place, another action and pose, another camera angle and distance, time of day and mood; do not reuse the same kind of setting or the same moment:`,
+      ...recent.map((x) => `- ${x.slice(0, 400)}`),
+      `Avoid the cliché of the main subject just standing still and gazing up in awe at a huge object: show it doing something.`,
+    ].join('\n')
     : '';
 
 @Injectable()
 export class GeminiService {
   private readonly log = new Logger(GeminiService.name);
 
-  async generate(page: Page, recentQuotes: string[], hint?: string, language = page.language, recentScenes: string[] = [], composition?: Composition): Promise<GeneratedPost> {
+  async generate(page: Page, recentQuotes: string[], hint?: string, language = page.language, recentScenes: string[] = [], composition?: Composition, action?: Action): Promise<GeneratedPost> {
     const lang = LANGS[language] ?? language;
     const prompt = [
       `You write posts for an Instagram page. Page topic and voice: ${page.niche}`,
@@ -58,7 +69,9 @@ export class GeminiService {
       `- "hashtags": 8-15 relevant hashtags without the # sign, mixing popular and niche ones, in ${lang} and English.`,
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a 5-second video made from that image: what moves and how the camera moves (e.g. slow push-in, gentle pan).`,
+      characterMotion(page.character) ? `In "motion", the character must move this way: ${page.character!.motion!.trim()}` : '',
       ...sceneRules(page.character, brandColors(page.style)),
+      actionRule(action),
       compositionRule(composition),
       `Never use em dashes (—) or en dashes (–) anywhere; use commas, colons or periods instead.`,
       hint ? `Extra instruction from the editor: ${hint}` : '',
@@ -75,12 +88,14 @@ export class GeminiService {
   }
 
   /** Another picture for the same quote (the user didn't like the previous still). */
-  async scene(page: Page, quote: string, previous?: string, recentScenes: string[] = [], composition?: Composition): Promise<{ scene: string; motion: string }> {
+  async scene(page: Page, quote: string, previous?: string, recentScenes: string[] = [], composition?: Composition, action?: Action): Promise<{ scene: string; motion: string }> {
     const prompt = [
       `An Instagram post (topic: ${page.niche}) carries this thought: "${quote}".`,
       `- "scene": in English, a vivid visual scene for an AI image generator that illustrates the thought: subject, action, setting, lighting, camera angle, style. 40-80 words. No text, letters, signs or logos in the scene.`,
       `- "motion": in English, one sentence for a short video made from that image: what moves and how the camera moves.`,
+      characterMotion(page.character) ? `In "motion", the character must move this way: ${page.character!.motion!.trim()}` : '',
       ...sceneRules(page.character, brandColors(page.style)),
+      actionRule(action),
       compositionRule(composition),
       previous ? `The previous scene was rejected, make a clearly different one (other place, action and mood):\n${previous}` : '',
       varietyRule(recentScenes.filter((x) => x !== previous)),

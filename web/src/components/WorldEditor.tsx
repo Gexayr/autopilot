@@ -13,10 +13,11 @@ export interface WorldDraft {
   world: string;
   enabled: boolean;
   description: string;
+  motion: string;
   refsMode: 'character' | 'style';
 }
 
-export const emptyWorld = (): WorldDraft => ({ style: 'photo', world: '', enabled: false, description: '', refsMode: 'style' });
+export const emptyWorld = (): WorldDraft => ({ style: 'photo', world: '', enabled: false, description: '', motion: '', refsMode: 'style' });
 
 const presetOf = (s: string) => (!s ? 'photo' : (STYLES as readonly string[]).includes(s) ? s : 'custom');
 
@@ -56,7 +57,11 @@ export function WorldEditor({ v, set, refs, onAddRef, onRemoveRef, onRenameRef, 
       <Switch checked={v.enabled} onChange={(e) => set({ enabled: e.currentTarget.checked })} label={t('char.enabled')} description={t('char.optional')} />
       {v.enabled && (
         <Textarea label={t('char.description')} description={t('char.descriptionHint')} placeholder={t('char.descriptionPh')}
-          autosize minRows={2} maxLength={500} value={v.description} onChange={(e) => set({ description: e.currentTarget.value })} />
+          autosize minRows={2} maxLength={1000} value={v.description} onChange={(e) => set({ description: e.currentTarget.value })} />
+      )}
+      {v.enabled && (
+        <TextInput label={t('char.motion')} description={t('char.motionHint')} placeholder={t('char.motionPh')}
+          maxLength={300} value={v.motion} onChange={(e) => set({ motion: e.currentTarget.value })} />
       )}
 
       <Divider />

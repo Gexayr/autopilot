@@ -14,7 +14,7 @@ import { InstagramService } from './instagram.service';
 import { pickTheme, RenderService } from './render.service';
 import { formatSlot, nextFreeSlot } from './slots';
 import { mediaDuration, pickTrack, trackFile } from './music';
-import { pickComposition } from './visual';
+import { hasCharacter, pickAction, pickComposition } from './visual';
 import { bt, Lang, langOf } from './bot.i18n';
 import { Keyboard, TelegramApi } from './telegram.api';
 
@@ -118,7 +118,8 @@ export class PostsService {
     });
     for (let attempt = 0; ; attempt++) {
       const composition = page.style.media === 'ai' ? pickComposition(recent.map((p) => p.render?.composition)) : undefined;
-      const g = await this.gemini.generate(page, recent.map((p) => p.quote!), hint, lang, this.scenesOf(recent), composition);
+      const action = page.style.media === 'ai' && hasCharacter(page.character) ? pickAction(recent.map((p) => p.render?.action)) : undefined;
+      const g = await this.gemini.generate(page, recent.map((p) => p.quote!), hint, lang, this.scenesOf(recent), composition, action);
       const kind = Math.random() < page.reelsRatio && (page.style.media !== 'ai' || await this.videoAllowed(page)) ? 'VIDEO' : 'IMAGE';
       const theme = pickTheme(page.style, Math.floor(Math.random() * 1000));
       const ai = page.style.media === 'ai';
@@ -126,7 +127,7 @@ export class PostsService {
       const post = this.posts.create({
         pageId: page.id, num: await this.nextNum(page.id), kind, source: 'ai', status: ai ? 'generating' : 'awaiting_approval', quote: g.quote,
         caption: `${pure ? `${g.quote}\n\n` : ''}${g.caption}\n\n${g.hashtags.map((t) => `#${t}`).join(' ')}`.slice(0, 2200),
-        contentHash: hashQuote(g.quote), render: { theme, ...(lang && { lang }), ...(ai && { scene: g.scene, motion: g.motion, composition }) },
+        contentHash: hashQuote(g.quote), render: { theme, ...(lang && { lang }), ...(ai && { scene: g.scene, motion: g.motion, composition, action }) },
       });
       try {
         await this.posts.insert(post);
@@ -503,10 +504,11 @@ export class PostsService {
     const recent = await this.posts.find({ where: { pageId: page.id }, order: { id: 'DESC' }, take: 12, select: ['render'] });
     // another composition too: the rejected one goes first in the "used" list
     const composition = pickComposition([post.render.composition, ...recent.map((p) => p.render?.composition)]);
-    const { scene, motion } = await this.gemini.scene(page, post.quote ?? '', post.render.scene, this.scenesOf(recent), composition);
+    const action = hasCharacter(page.character) ? pickAction([post.render.action, ...recent.map((p) => p.render?.action)]) : undefined;
+    const { scene, motion } = await this.gemini.scene(page, post.quote ?? '', post.render.scene, this.scenesOf(recent), composition, action);
     if (post.render.aiImage) await this.removeFile(post.render.aiImage);
     await this.posts.update({ id: postId, status: 'frame_approval' },
-      { status: 'generating', render: { ...post.render, scene, motion, composition, aiImage: undefined } });
+      { status: 'generating', render: { ...post.render, scene, motion, composition, action, aiImage: undefined } });
     await this.jobs.insert({ postId });
   }
 
